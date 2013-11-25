@@ -162,12 +162,11 @@ class MyClass(GeneratedClass):
 		# Transition quickly back to waiting state matrices
 		# - background task?
 
-		## Actual code
-		
-		self.speechProxy.say("Matrix Current, before blend!")
-		matrix = str(self.robotMatrixCurrentList)
-		self.log("Matrix Current, before blend!")
-		self.log(matrix)
+		## Actual code		
+		# self.speechProxy.say("Matrix Current, before blend!")
+		# matrix = str(self.robotMatrixCurrentList)
+		# self.log("Matrix Current, before blend!")
+		# self.log(matrix)
 		#self.speechProxy.say(str(matrix))
 
 		for i in range(5):
@@ -197,16 +196,16 @@ class MyClass(GeneratedClass):
 								for row1, row2 in zip(self.robotMatrixCurrentList[i], self.robotStateList[i][g_robot_state])]
 			
 			#self.speechProxy.say("State List")
-			matrix = str(self.robotStateList[i][g_robot_state])
-			state_string = "State list " + str(i) + " " + str(g_robot_state)
-			self.log(state_string)
-			self.log(matrix)
+			# matrix = str(self.robotStateList[i][g_robot_state])
+			# state_string = "State list " + str(i) + " " + str(g_robot_state)
+			# self.log(state_string)
+			# self.log(matrix)
 			#self.speechProxy.say(str(matrix))
 
-		self.speechProxy.say("Matrix Current, after blend!")
-		matrix = str(self.robotMatrixCurrentList)
-		self.log("Matrix Current, after blend!")
-		self.log(matrix)
+		# self.speechProxy.say("Matrix Current, after blend!")
+		# matrix = str(self.robotMatrixCurrentList)
+		# self.log("Matrix Current, after blend!")
+		# self.log(matrix)
 		#self.speechProxy.say(str(matrix))
 		
 
@@ -536,6 +535,12 @@ class MyClass(GeneratedClass):
 			# Just loop till the end of time.
 			
 			# Get the current state
+			self.speechProxy.say("Matrix Current!")
+			matrix = str(self.robotMatrixCurrentList)
+			self.log("Matrix Current")
+			self.log(matrix)
+			time.sleep(0.5)
+
 
 			# Create cumulative matrices from the current matrices
 
