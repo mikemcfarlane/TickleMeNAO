@@ -632,7 +632,7 @@ class MyClass(GeneratedClass):
 
 			# Wait
 
-			pass
+			
 
 			
 
