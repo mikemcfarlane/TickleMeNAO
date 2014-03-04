@@ -18,7 +18,8 @@
 # 0.12, 21/11/2013, add in all sensors to generate new current matrices
 # 0.13, standalone code, add random number generator and transition selection
 # 0.14, 04/03/2014, code too complex and ideas muddled so rewrite from scratch starting simple.
-# This version will provide a simple Markov transition matrix response.
+# - This version will provide a simple Markov transition matrix response.
+# - Moved to GitHub version control, archived old version named files.
 # USAGE: 
 # Run from Terminal
 # TODO:
@@ -35,6 +36,7 @@
 
 import time
 import sys
+import numpy as np
 
 from naoqi import ALProxy
 from naoqi import ALBroker
@@ -42,16 +44,16 @@ from naoqi import ALModule
 
 from optparse import OptionParser
 
-NAO_IP = "10.0.1.188"
+NAO_IP = "mistcalf.local"
 
 # Global variables to store module instances and proxies
-global MarkovTickle
-global memory
-global speechProxy
-global bodyProxy
-global leftArmProxy
-global rightArmProxy
-global robotMotionProxy
+MarkovTickle = None
+memory = None
+speechProxy = None
+bodyProxy = None
+leftArmProxy = None
+rightArmProxy = None
+robotMotionProxy = None
 
 
 
@@ -61,8 +63,12 @@ class MarkovTickleModule(ALModule):
 	"""
 
 	def __init__(self, name):
+		""" Initialise module. 
+
+		"""
 		ALModule.__init__(self, name)
 
+		# Globals for proxies
 		global memory
 		global speechProxy
 		global bodyProxy
@@ -70,17 +76,33 @@ class MarkovTickleModule(ALModule):
 		global rightArmProxy
 		global robotMotionProxy
 
+		# Variables for the Markov Chain Transition Matrices
+		self.currentState = 0
+		self.stateDictionary = {0 : 'stand still',
+                				1 : 'wave left arm',
+                   				2 : 'wave right arm'
+                   				}
+
+		# Transition matrices in numpy format
+		self.transitionMatrix = np.array([[0.33, 0.33, 0.34],
+		                        	    [0.2, 0.4, 0.4],
+		                            	[0.1, 0.1, 0.8]]
+		                            	)
+		
 		# Lists for large setup items e.g. subscribe, unsubscribe
 		self.subscriptionList = ["RightBumperPressed",
 								"LeftBumperPressed",
 								"FrontTactilTouched",
+								"MiddleTactilTouched",
+								"RearTactilTouched",
+								"HandRightBackTouched",
+								"HandRightLeftTouched",
+								"HandRightRightTouched",
+								"HandLeftBackTouched",
+								"HandLeftLeftTouched",
+								"HandLeftRightTouched"
 								]
-
 		
-
-		""" Stuff to do when module starts. 
-
-		"""
 		# Setup proxies
 		try:
 			bodyProxy = ALProxy("ALRobotPosture")
@@ -113,106 +135,59 @@ class MarkovTickleModule(ALModule):
 			print "Could not create proxy to ALMemory"
 			print "Error was: ", e
 
-		# Subscribe to the sensor events:
-		memory.subscribeToEvent("RightBumperPressed","MarkovTickle","tickled")
-		memory.subscribeToEvent("LeftBumperPressed","MarkovTickle","tickled")
-		memory.subscribeToEvent("FrontTactilTouched","MarkovTickle","tickled")
-		memory.subscribeToEvent("MiddleTactilTouched","MarkovTickle","tickled")
-		memory.subscribeToEvent("RearTactilTouched","MarkovTickle","tickled")
-		memory.subscribeToEvent("HandRightBackTouched","MarkovTickle","tickled")
-		memory.subscribeToEvent("HandRightLeftTouched","MarkovTickle","tickled")
-		memory.subscribeToEvent("HandRightRightTouched","MarkovTickle","tickled")
-		memory.subscribeToEvent("HandLeftBackTouched","MarkovTickle","tickled")
-		memory.subscribeToEvent("HandLeftLeftTouched","MarkovTickle","tickled")
-		memory.subscribeToEvent("HandLeftRightTouched","MarkovTickle","tickled")
-
-		
-
+		# Subscribe to the sensor events.
+		# Initially passes name of method for callback, but maybe be multiple method names in future.
+		self.easySubscribeEvents("tickled")		
 		
 		# ---------------- END __init__ ---------------------------
 
-	def tickled(self, key, value, msg):
+
+	def tickled(self):
 		""" NAO does this when tickled.
 
 		"""
-		pass
+		self.easyUnsubscribeEvents()
+		speechProxy.say("Hey, get off!")
+		# Execute Markov transition
+		numberElementsPerAction = 3
+		arraySize = len(self.transitionMatrix[self.currentState])
+		lastState = self.currentState
+		for j in range(numberElementsPerAction):
+			lastState = np.random.choice(arraySize, p = self.transitionMatrix[lastState])
+			print "lastState: %s" % lastState,
+			print "Do: %s", self.stateDictionary[lastState]
+		self.easySubscribeEvents("tickled")
 
-	def main(self):
+	def mainTask(self):
 		""" Temp main task.
 
 		"""
-		# While, infinite - 
+		# Run forever
 		while True:
 			print ("Alive!")
-			time.sleep(0.5)
+			time.sleep(1.0)
 
-	def shutDownRobot(self):
-		""" Exit cleanly. """
-        # un-subscribe to the sensor events:
-        try:
-        	memory.unsubscribeToEvent("RightBumperPressed","MarkovTickle")
-        except Exception, e:
-        	errorString = "Error was: " + str(e)
-        	print(errorString)
-        try:	
-        	memory.unsubscribeToEvent("LeftBumperPressed","MarkovTickle")
-        except Exception, e:
-        	errorString = "Error was: " + str(e)
-        	print(errorString)
-        try:	
-        	memory.unsubscribeToEvent("FrontTactilTouched","MarkovTickle")
-        except Exception, e:
-        	errorString = "Error was: " + str(e)
-        	print(errorString)
-        try:	
-        	memory.unsubscribeToEvent("MiddleTactilTouched","MarkovTickle")
-        except Exception, e:
-        	errorString = "Error was: " + str(e)
-        	print(errorString)	
-        try:	
-        	memory.unsubscribeToEvent("RearTactilTouched","MarkovTickle")
-        except Exception, e:
-        	errorString = "Error was: " + str(e)
-        	print(errorString)
-        try:	
-        	memory.unsubscribeToEvent("HandRightBackTouched","MarkovTickle")
-        except Exception, e:
-        	errorString = "Error was: " + str(e)
-        	print(errorString)
-        try:	
-        	memory.unsubscribeToEvent("HandRightLeftTouched","MarkovTickle")
-        except Exception, e:
-        	errorString = "Error was: " + str(e)
-        	print(errorString)	
-        try:	
-        	memory.unsubscribeToEvent("HandRightRightTouched","MarkovTickle")
-        except Exception, e:
-        	errorString = "Error was: " + str(e)
-        	print(errorString)	
-        try:
-        	memory.unsubscribeToEvent("HandLeftBackTouched","MarkovTickle")
-        except Exception, e:
-        	errorString = "Error was: " + str(e)
-        	print(errorString)	
-        try:	
-        	memory.unsubscribeToEvent("HandLeftLeftTouched","MarkovTickle")
-        except Exception, e:
-        	errorString = "Error was: " + str(e)
-        	print(errorString)
-        try:	
-        	memory.unsubscribeToEvent("HandLeftRightTouched","MarkovTickle")
-        except Exception, e:
-        	errorString = "Error was: " + str(e)
-        	print(errorString)
+	def easySubscribeEvents(self, callback):
+		""" Subscribes to all events in subscriptionList.
 
-	
+		"""
+		for eventName in self.subscriptionList:
+			try:
+				memory.subscribeToEvent(eventName, self.getName(), callback)
+				print "Subscribed to %s." % eventName
+			except Exception, e:
+				print "Subscribe exception error %s for %s." % (e, eventName)
 
-	        
+	def easyUnsubscribeEvents(self):
+		""" Unsubscribes from all events in subscriptionList.
 
-	
-		
+		"""
+		for eventName in self.subscriptionList:
+			try:
+				memory.unsubscribeToEvent(eventName, self.getName())
+			except Exception, e:
+				print "Unsubscribe exception error %s for %s." % (e, eventName)
 
-	
 
 
 def main():
@@ -250,17 +225,16 @@ def main():
     global MarkovTickle
     MarkovTickle = MarkovTickleModule("MarkovTickle")
 
-    # Start the temporary main task
-    MarkovTickle.main()
-
     print "Running, hit CTRL+C to stop script"
+    MarkovTickle.mainTask()
 
     try:
         while True:
         	time.sleep(1)
     except KeyboardInterrupt:
         print "Interrupted by user, shutting down"
-        MarkovTickle.shutDownRobot()
+        MarkovTickle.easyUnsubscribeEvents()
+        MarkovTickle.bodyProxy("Crouch", 0.8)
 		# stop any post tasks
 		# eg void ALModule::stop(const int& id)
         try:

@@ -457,6 +457,7 @@ class MarkovTickleModule(ALModule):
 	def shutDownRobot(self):
 		""" Exit cleanly. """
         # un-subscribe to the sensor events:
+        print "Shutting down!"
         try:
         	memory.unsubscribeToEvent("RightBumperPressed","MarkovTickle")
         except Exception, e:
