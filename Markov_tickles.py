@@ -20,6 +20,7 @@
 # 0.14, 04/03/2014, code too complex and ideas muddled so rewrite from scratch starting simple.
 # - This version will provide a simple Markov transition matrix response.
 # - Moved to GitHub version control, archived old version named files.
+# - NAO runs numpy v 1.6.2, np.random.choice() not till 1.7.x, so have to create cumulative matrices.
 # USAGE: 
 # Run from Terminal
 # TODO:
@@ -138,6 +139,9 @@ class MarkovTickleModule(ALModule):
 		# Subscribe to the sensor events.
 		# Initially passes name of method for callback, but maybe be multiple method names in future.
 		self.easySubscribeEvents("tickled")		
+
+		print dir(np.random)
+		print np.__version__
 		
 		# ---------------- END __init__ ---------------------------
 
@@ -153,9 +157,10 @@ class MarkovTickleModule(ALModule):
 		arraySize = len(self.transitionMatrix[self.currentState])
 		lastState = self.currentState
 		for j in range(numberElementsPerAction):
-			lastState = np.random.choice(arraySize, p = self.transitionMatrix[lastState])
+			# lastState = np.random.choice(arraySize, p = self.transitionMatrix[lastState])
+			lastState = np.random.choice(5, 3, p=[0.1, 0, 0.3, 0.6, 0])
 			print "lastState: %s" % lastState,
-			print "Do: %s", self.stateDictionary[lastState]
+			# print "Do: %s", self.stateDictionary[lastState]
 		self.easySubscribeEvents("tickled")
 
 	def mainTask(self):
@@ -165,6 +170,8 @@ class MarkovTickleModule(ALModule):
 		# Run forever
 		while True:
 			print ("Alive!")
+			# lastState = numpy.random.choice(5, 3, p=[0.1, 0, 0.3, 0.6, 0])
+			# print "lastState: %s" % lastState,
 			time.sleep(1.0)
 
 	def easySubscribeEvents(self, callback):
@@ -185,6 +192,7 @@ class MarkovTickleModule(ALModule):
 		for eventName in self.subscriptionList:
 			try:
 				memory.unsubscribeToEvent(eventName, self.getName())
+				print "Unsubscribed from %s." % eventName
 			except Exception, e:
 				print "Unsubscribe exception error %s for %s." % (e, eventName)
 
