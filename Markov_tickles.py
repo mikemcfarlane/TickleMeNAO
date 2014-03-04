@@ -80,15 +80,38 @@ class MarkovTickleModule(ALModule):
 		# Variables for the Markov Chain Transition Matrices
 		self.currentState = 0
 		self.stateDictionary = {0 : 'stand still',
-                				1 : 'wave left arm',
-                   				2 : 'wave right arm'
-                   				}
+								1 : 'wave left arm',
+								2 : 'wave right arm'
+								}
+
+		self.wordDictionary = {0 : 'hee',
+								1 : "ha",
+								2 : "ho",
+								3 : "who",
+								4 : "tee",
+								5 : "ho ho",
+								6 : "so, tickly!",
+								7 : "no!",
+								8 : "not there",
+								9 : "sigh!"
+								}
 
 		# Transition matrices in numpy format
-		self.transitionMatrix = np.array([[0.33, 0.33, 0.34],
-		                        	    [0.2, 0.4, 0.4],
-		                            	[0.1, 0.1, 0.8]]
-		                            	)
+		self.transitionMatrixAction = np.array([[0.33, 0.33, 0.34],
+										[0.2, 0.4, 0.4],
+										[0.1, 0.1, 0.8]]
+										)
+		self.transitionMatrixWord = np.array([[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]]
+											)
 		
 		# Lists for large setup items e.g. subscribe, unsubscribe
 		self.subscriptionList = ["RightBumperPressed",
@@ -152,22 +175,36 @@ class MarkovTickleModule(ALModule):
 		# Execute Markov transition
 		# Define how many action elements will be actioned each 'tickle' action.
 		numberElementsPerAction = 3
-		lastState = self.currentState
+		lastStateAction = self.currentState
+		# This should have it's own current state but will do for test.
+		lastStateWord = self.currentState
+		sayPhrase = ""
 		for i in range(numberElementsPerAction):
 			randomNum = np.random.random()
 			# Create cumulative matrix for random num comparison.
-			currentStateTransitionProbabilities = np.cumsum(self.transitionMatrix[lastState])
-			print currentStateTransitionProbabilities
+			currentStateTransitionProbabilitiesAction = np.cumsum(self.transitionMatrixAction[lastStateAction])
+			currentStateTransitionProbabilitiesWord = np.cumsum(self.transitionMatrixWord[lastStateWord])
+			print currentStateTransitionProbabilitiesAction
+			print currentStateTransitionProbabilitiesWord
 			# Choose the less than random num value from cumulative transitiona matrix.
-			for index, probability in enumerate(currentStateTransitionProbabilities):
+			for index, probability in enumerate(currentStateTransitionProbabilitiesAction):
 				if probability <= randomNum:
-					lastState = index +1
+					lastStateAction = index + 1
 				else:
 					break
-			print "lastState: %s" % lastState,
-			print "Do: %s" % self.stateDictionary[lastState]
-			# Write lastState to currentState for future use.
-			self.currentState = lastState
+			for index, probability in enumerate(currentStateTransitionProbabilitiesWord):
+				if probability <= randomNum:
+					lastStateWord = index + 1
+				else:
+					break
+			# print "lastStateAction: %s" % lastStateAction,
+			# print "Do: %s" % self.stateDictionary[lastStateAction]
+			# print "lastStateWord: %s" % lastStateWord,
+			# print "Do: %s" % self.wordDictionary[lastStateWord]
+			sayPhrase += self.wordDictionary[lastStateWord]
+		speechProxy.say(sayPhrase)
+		# Write lastState to currentState for future use.
+		self.currentState = lastStateAction
 		self.easySubscribeEvents("tickled")
 
 	def mainTask(self):
@@ -206,64 +243,64 @@ class MarkovTickleModule(ALModule):
 
 
 def main():
-    """ Main entry point
+	""" Main entry point
 
-    """
-    parser = OptionParser()
-    parser.add_option("--pip",
-        help="Parent broker port. The IP address of your robot",
-        dest="pip")
-    parser.add_option("--pport",
-        help="Parent broker port. The port NAOqi is listening to",
-        dest="pport",
-        type="int")
-    parser.set_defaults(
-        pip=NAO_IP,
-        pport=9559)
+	"""
+	parser = OptionParser()
+	parser.add_option("--pip",
+		help="Parent broker port. The IP address of your robot",
+		dest="pip")
+	parser.add_option("--pport",
+		help="Parent broker port. The port NAOqi is listening to",
+		dest="pport",
+		type="int")
+	parser.set_defaults(
+		pip=NAO_IP,
+		pport=9559)
 
-    (opts, args_) = parser.parse_args()
-    pip   = opts.pip
-    pport = opts.pport
+	(opts, args_) = parser.parse_args()
+	pip   = opts.pip
+	pport = opts.pport
 
-    # We need this broker to be able to construct
-    # NAOqi modules and subscribe to other modules
-    # The broker must   stay alive until the program exists
-    myBroker = ALBroker("myBroker",
-       "0.0.0.0",   # listen to anyone
-       0,           # find a free port and use it
-       pip,         # parent broker IP
-       pport)       # parent broker port
+	# We need this broker to be able to construct
+	# NAOqi modules and subscribe to other modules
+	# The broker must   stay alive until the program exists
+	myBroker = ALBroker("myBroker",
+	   "0.0.0.0",   # listen to anyone
+	   0,           # find a free port and use it
+	   pip,         # parent broker IP
+	   pport)       # parent broker port
 
-    # Warning: Objects must be a global variable
-    # The name given to the constructor must be the name of the
-    # variable
-    global MarkovTickle
-    MarkovTickle = MarkovTickleModule("MarkovTickle")
+	# Warning: Objects must be a global variable
+	# The name given to the constructor must be the name of the
+	# variable
+	global MarkovTickle
+	MarkovTickle = MarkovTickleModule("MarkovTickle")
 
-    print "Running, hit CTRL+C to stop script"
-    MarkovTickle.mainTask()
+	print "Running, hit CTRL+C to stop script"
+	MarkovTickle.mainTask()
 
-    try:
-        while True:
-        	time.sleep(1)
-    except KeyboardInterrupt:
-        print "Interrupted by user, shutting down"
-        MarkovTickle.easyUnsubscribeEvents()
-        MarkovTickle.bodyProxy("Crouch", 0.8)
+	try:
+		while True:
+			time.sleep(1)
+	except KeyboardInterrupt:
+		print "Interrupted by user, shutting down"
+		MarkovTickle.easyUnsubscribeEvents()
+		MarkovTickle.bodyProxy("Crouch", 0.8)
 		# stop any post tasks
 		# eg void ALModule::stop(const int& id)
-        try:
-        	myBroker.shutdown()
-        except Exception, e:
-        	print "Error shutting down broker: ", e
-        try:
-        	sys.exit(0)
-        except Exception, e:
-        	print "Error exiting system: ", e
+		try:
+			myBroker.shutdown()
+		except Exception, e:
+			print "Error shutting down broker: ", e
+		try:
+			sys.exit(0)
+		except Exception, e:
+			print "Error exiting system: ", e
 
 
 if __name__ == "__main__":
-    main()
+	main()
 		
 
 	
