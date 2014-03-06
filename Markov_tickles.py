@@ -84,16 +84,14 @@ class MarkovTickleModule(ALModule):
 								2 : 'wave right arm'
 								}
 
-		self.wordDictionary = {0 : 'hee',
+		self.wordDictionary = {0 : 'he',
 								1 : "ha",
-								2 : "ho",
-								3 : "who",
-								4 : "tee",
-								5 : "ho ho",
-								6 : "so, tickly!",
-								7 : "no!",
-								8 : "not there",
-								9 : "sigh!"
+								2 : "ha ha",
+								3 : "he",
+								4 : "he he",
+								5 : "ho",
+								6 : "ho ho",
+								7 : "Fookin hell that tickles me!"
 								}
 
 		# Transition matrices in numpy format
@@ -101,16 +99,14 @@ class MarkovTickleModule(ALModule):
 										[0.2, 0.4, 0.4],
 										[0.1, 0.1, 0.8]]
 										)
-		self.transitionMatrixWord = np.array([[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]]
+		self.transitionMatrixWord = np.array([[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
+											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
+											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
+											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
+											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
+											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
+											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
+											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01]]
 											)
 
 		# # Check matrix test code.
@@ -200,7 +196,6 @@ class MarkovTickleModule(ALModule):
 		# Execute Markov transition
 		# Define how many action elements will be actioned each 'tickle' action.
 		numberElementsPerAction = int(np.random.random() * 10)
-		print numberElementsPerAction
 		sayPhrase1 = ""
 		wordList1 = []
 		for i in range(numberElementsPerAction):
@@ -211,7 +206,6 @@ class MarkovTickleModule(ALModule):
 				print "Word dictionary exception: ", e
 		# Repeat for second phrase.
 		numberElementsPerAction = int(np.random.random() * 10)
-		print numberElementsPerAction
 		sayPhrase2 = ""
 		wordList2 = []
 		for i in range(numberElementsPerAction):
@@ -222,30 +216,27 @@ class MarkovTickleModule(ALModule):
 				print "Word dictionary exception: ", e
 
 		# Voice output
-		sayPhrase1 = ".    ".join(wordList1)
-		sayPhrase2 = ".    ".join(wordList2)
-		wordPitch = 1.5
-		laughPitch = 2.0
+		sayPhrase1 = " ".join(wordList1)
+		sayPhrase2 = " ".join(wordList2)
+		tickleSentence = "" + sayPhrase1 + "" + sayPhrase2 + " "
+
+		wordPitch = 1.25
+		laughPitch = 1.5
 		normalPitch = 0
-
-		speechProxy.setParameter("pitchShift", wordPitch)
-		speechProxy.say("Hey, ")
+		doubleVoiceLaugh = 1.0
+		doubleVoiceNormal = 0
+		voice1 = "allison"
+		voice2 = "audrey"
 		
+		speechProxy.setVoice(voice1)
 		speechProxy.setParameter("pitchShift", laughPitch)
-		speechProxy.say(sayPhrase1)
-		
-		speechProxy.setParameter("pitchShift", wordPitch)
-		speechProxy.say("that")
-
-		speechProxy.setParameter("pitchShift", laughPitch)
-		speechProxy.say(sayPhrase2)
-
-		speechProxy.setParameter("pitchShift", wordPitch)
-		speechProxy.say("really tickles me!")
-
+		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
+				
+		speechProxy.say(tickleSentence)
 		
 		speechProxy.setParameter("pitchShift", normalPitch)
-				
+		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
+
 		self.easySubscribeEvents("tickled")
 
 	def mainTask(self):
@@ -255,8 +246,6 @@ class MarkovTickleModule(ALModule):
 		# Run forever
 		while True:
 			print ("Alive!")
-			# lastState = numpy.random.choice(5, 3, p=[0.1, 0, 0.3, 0.6, 0])
-			# print "lastState: %s" % lastState,
 			time.sleep(1.0)
 
 	def easySubscribeEvents(self, callback):
