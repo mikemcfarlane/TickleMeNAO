@@ -180,11 +180,8 @@ class MarkovTickleModule(ALModule):
 		"""
 		randNum = np.random.random()
 		cum = 0
-		print "matrix: ", inMatrix
-		print "sum: ", sum(inMatrix)
-		for i, j in enumerate(inMatrix):
-			print "i: %s, j: %s" % (i, j)
-		if sum(inMatrix) != 1:
+		
+		if round(np.sum(inMatrix)) != 1:
 			print "Not a P matrix"
 			# todo: exception handling
 		else:
@@ -200,23 +197,55 @@ class MarkovTickleModule(ALModule):
 
 		"""
 		self.easyUnsubscribeEvents()
-		speechProxy.say("Hey, get off!")
 		# Execute Markov transition
 		# Define how many action elements will be actioned each 'tickle' action.
-		numberElementsPerAction = 3
-		sayPhrase = ""
-		print "currentState, initial: ", self.currentState
+		numberElementsPerAction = int(np.random.random() * 10)
+		print numberElementsPerAction
+		sayPhrase1 = ""
+		wordList1 = []
 		for i in range(numberElementsPerAction):
 			self.currentState = self.markovChoice(self.transitionMatrixWord[self.currentState])
-			print "currentState, new: ", self.currentState
 			try:
-				sayPhrase = self.wordDictionary[self.currentState]
+				wordList1.append(self.wordDictionary[self.currentState])
 			except Exception, e:
 				print "Word dictionary exception: ", e
-			
-			speechProxy.say(sayPhrase)
+		# Repeat for second phrase.
+		numberElementsPerAction = int(np.random.random() * 10)
+		print numberElementsPerAction
+		sayPhrase2 = ""
+		wordList2 = []
+		for i in range(numberElementsPerAction):
+			self.currentState = self.markovChoice(self.transitionMatrixWord[self.currentState])
+			try:
+				wordList2.append(self.wordDictionary[self.currentState])
+			except Exception, e:
+				print "Word dictionary exception: ", e
+
+		# Voice output
+		sayPhrase1 = ".    ".join(wordList1)
+		sayPhrase2 = ".    ".join(wordList2)
+		wordPitch = 1.5
+		laughPitch = 2.0
+		normalPitch = 0
+
+		speechProxy.setParameter("pitchShift", wordPitch)
+		speechProxy.say("Hey, ")
 		
+		speechProxy.setParameter("pitchShift", laughPitch)
+		speechProxy.say(sayPhrase1)
 		
+		speechProxy.setParameter("pitchShift", wordPitch)
+		speechProxy.say("that")
+
+		speechProxy.setParameter("pitchShift", laughPitch)
+		speechProxy.say(sayPhrase2)
+
+		speechProxy.setParameter("pitchShift", wordPitch)
+		speechProxy.say("really tickles me!")
+
+		
+		speechProxy.setParameter("pitchShift", normalPitch)
+				
 		self.easySubscribeEvents("tickled")
 
 	def mainTask(self):
