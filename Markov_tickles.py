@@ -112,6 +112,14 @@ class MarkovTickleModule(ALModule):
 											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
 											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]]
 											)
+
+		# # Check matrix test code.
+		# sum = 0
+		# for i, j in enumerate(self.transitionMatrixWord):
+		# 	for k, l in enumerate(j):
+		# 		print "i: %s, k: %s, l: %s" % (i, k, l)
+		# 		sum += l
+		# print "sum of matrix: %s" % sum
 		
 		# Lists for large setup items e.g. subscribe, unsubscribe
 		self.subscriptionList = ["RightBumperPressed",
@@ -166,6 +174,27 @@ class MarkovTickleModule(ALModule):
 		# ---------------- END __init__ ---------------------------
 
 
+	def markovChoice(self, inMatrix):
+		""" Chooses a value from a Markov transition matrix.
+
+		"""
+		randNum = np.random.random()
+		cum = 0
+		print "matrix: ", inMatrix
+		print "sum: ", sum(inMatrix)
+		for i, j in enumerate(inMatrix):
+			print "i: %s, j: %s" % (i, j)
+		if sum(inMatrix) != 1:
+			print "Not a P matrix"
+			# todo: exception handling
+		else:
+			for index, probability in enumerate(inMatrix):
+				cum += probability
+				if cum > randNum:
+					return index
+
+
+
 	def tickled(self):
 		""" NAO does this when tickled.
 
@@ -175,36 +204,19 @@ class MarkovTickleModule(ALModule):
 		# Execute Markov transition
 		# Define how many action elements will be actioned each 'tickle' action.
 		numberElementsPerAction = 3
-		lastStateAction = self.currentState
-		# This should have it's own current state but will do for test.
-		lastStateWord = self.currentState
 		sayPhrase = ""
+		print "currentState, initial: ", self.currentState
 		for i in range(numberElementsPerAction):
-			randomNum = np.random.random()
-			# Create cumulative matrix for random num comparison.
-			currentStateTransitionProbabilitiesAction = np.cumsum(self.transitionMatrixAction[lastStateAction])
-			currentStateTransitionProbabilitiesWord = np.cumsum(self.transitionMatrixWord[lastStateWord])
-			print currentStateTransitionProbabilitiesAction
-			print currentStateTransitionProbabilitiesWord
-			# Choose the less than random num value from cumulative transitiona matrix.
-			for index, probability in enumerate(currentStateTransitionProbabilitiesAction):
-				if probability <= randomNum:
-					lastStateAction = index + 1
-				else:
-					break
-			for index, probability in enumerate(currentStateTransitionProbabilitiesWord):
-				if probability <= randomNum:
-					lastStateWord = index + 1
-				else:
-					break
-			# print "lastStateAction: %s" % lastStateAction,
-			# print "Do: %s" % self.stateDictionary[lastStateAction]
-			# print "lastStateWord: %s" % lastStateWord,
-			# print "Do: %s" % self.wordDictionary[lastStateWord]
-			sayPhrase += self.wordDictionary[lastStateWord]
-		speechProxy.say(sayPhrase)
-		# Write lastState to currentState for future use.
-		self.currentState = lastStateAction
+			self.currentState = self.markovChoice(self.transitionMatrixWord[self.currentState])
+			print "currentState, new: ", self.currentState
+			try:
+				sayPhrase = self.wordDictionary[self.currentState]
+			except Exception, e:
+				print "Word dictionary exception: ", e
+			
+			speechProxy.say(sayPhrase)
+		
+		
 		self.easySubscribeEvents("tickled")
 
 	def mainTask(self):
