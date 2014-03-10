@@ -79,14 +79,28 @@ class MarkovTickleModule(ALModule):
 		global rightArmProxy
 		global robotMotionProxy
 
+		# Variables for movement
+		self.fractionMaxSpeed = 0.8
+		self.defaultPose = "Sit"
+
 		# Variables for the Markov Chain Transition Matrices
 		self.currentStateWord = 0
 		self.currentStateAction = 0
-		self.actionDictionary = {0 : 'animations/Sit/BodyTalk/BodyTalk_1',
+		self.actionSittingDictionary = {0 : 'animations/Sit/BodyTalk/BodyTalk_1',
 								1 : 'animations/Sit/BodyTalk/BodyTalk_10',
 								2 : 'animations/Sit/BodyTalk/BodyTalk_11',
 								3 : 'animations/Sit/BodyTalk/BodyTalk_12'
 								}
+
+		self.actionStandingDictionary = {0 : 'animations/Stand/Gestures/Enthusiastic_4',
+								1 : 'animations/Stand/Gestures/Enthusiastic_5',
+								2 : 'animations/Stand/Gestures/Hey_1',
+								3 : 'animations/Stand/Gestures/Hey_6'
+								}
+		if self.defaultPose == 'Sit':
+			self.actionDictionary = self.actionSittingDictionary
+		else:
+			self.actionDictionary = self.actionStandingDictionary
 
 		self.wordDictionary = {0 : 'ha',
 								1 : "ha ha",
@@ -179,9 +193,8 @@ class MarkovTickleModule(ALModule):
 
 		# First, wake up.
 		robotMotionProxy.wakeUp()
-		self.fractionMaxSpeed = 0.8
-		self.defaultPose = "Sit"
-		# Go to posture stand
+		
+		# Go to default posture.
 		bodyProxy.goToPosture(self.defaultPose, self.fractionMaxSpeed)
 
 		# ---------------- END __init__ ---------------------------
