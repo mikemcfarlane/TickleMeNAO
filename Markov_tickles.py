@@ -51,6 +51,7 @@ NAO_IP = "mistcalf.local"
 MarkovTickle = None
 memory = None
 speechProxy = None
+animateProxy = None
 bodyProxy = None
 leftArmProxy = None
 rightArmProxy = None
@@ -72,41 +73,45 @@ class MarkovTickleModule(ALModule):
 		# Globals for proxies
 		global memory
 		global speechProxy
+		global animateProxy
 		global bodyProxy
 		global leftArmProxy
 		global rightArmProxy
 		global robotMotionProxy
 
 		# Variables for the Markov Chain Transition Matrices
-		self.currentState = 0
-		self.stateDictionary = {0 : 'stand still',
-								1 : 'wave left arm',
-								2 : 'wave right arm'
+		self.currentStateWord = 0
+		self.currentStateAction = 0
+		self.actionDictionary = {0 : 'animations/Sit/BodyTalk/BodyTalk_1',
+								1 : 'animations/Sit/BodyTalk/BodyTalk_10',
+								2 : 'animations/Sit/BodyTalk/BodyTalk_11',
+								3 : 'animations/Sit/BodyTalk/BodyTalk_12'
 								}
 
-		self.wordDictionary = {0 : 'he',
-								1 : "ha",
-								2 : "ha ha",
-								3 : "he",
-								4 : "he he",
+		self.wordDictionary = {0 : 'ha',
+								1 : "ha ha",
+								2 : "he",
+								3 : "he he",
+								4 : "he he he",
 								5 : "ho",
 								6 : "ho ho",
 								7 : "Fookin hell that tickles me!"
 								}
 
 		# Transition matrices in numpy format
-		self.transitionMatrixAction = np.array([[0.33, 0.33, 0.34],
-										[0.2, 0.4, 0.4],
-										[0.1, 0.1, 0.8]]
+		self.transitionMatrixAction = np.array([[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25]]
 										)
-		self.transitionMatrixWord = np.array([[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
-											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
-											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
-											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
-											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
-											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
-											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01],
-											[0.39, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01]]
+		self.transitionMatrixWord = np.array([[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01]]
 											)
 
 		# # Check matrix test code.
@@ -135,37 +140,49 @@ class MarkovTickleModule(ALModule):
 		try:
 			bodyProxy = ALProxy("ALRobotPosture")
 		except Exception, e:
-			print "Could not create proxy to ALRobotPosture"
-			print "Error was: ", e
+			print "Could not create proxy to ALRobotPosture. Error: ", e
+			
 		try:
 			leftArmProxy = ALProxy("ALRobotPosture")
 		except Exception, e:
-			print "Could not create proxy to ALRobotPosture"
-			print "Error was: ", e
+			print "Could not create proxy to ALRobotPosture. Error: ", e
+			
 		try:
 			rightArmProxy = ALProxy("ALRobotPosture")
 		except Exception, e:
-			print "Could not create proxy to ALRobotPosture"
-			print "Error was: ", e
+			print "Could not create proxy to ALRobotPosture. Error: ", e
+			
 		try:
 			robotMotionProxy = ALProxy("ALMotion")
 		except Exception, e:
-			print "Could not create proxy to ALMotion"
-			print "Error was: ", e
+			print "Could not create proxy to ALMotion. Error: ", e
+			
 		try:
 			speechProxy = ALProxy("ALTextToSpeech")
 		except Exception, e:
-			print "Could not create proxy to ALTextToSpeech"
-			print "Error was: ", e
+			print "Could not create proxy to ALTextToSpeech. Error: ", e
+			
+		try:
+			animateProxy = ALProxy("ALAnimatedSpeech")
+		except Exception, e:
+			print "Could not create proxy to ALAnimatedSpeech. Error: ", e
+			
 		try:
 			memory = ALProxy("ALMemory")
 		except Exception, e:
-			print "Could not create proxy to ALMemory"
-			print "Error was: ", e
+			print "Could not create proxy to ALMemory. Error: ", e
+			
 
 		# Subscribe to the sensor events.
 		# Initially passes name of method for callback, but maybe be multiple method names in future.
-		self.easySubscribeEvents("tickled")		
+		self.easySubscribeEvents("tickled")
+
+		# First, wake up.
+		robotMotionProxy.wakeUp()
+		self.fractionMaxSpeed = 0.8
+		self.defaultPose = "Sit"
+		# Go to posture stand
+		bodyProxy.goToPosture(self.defaultPose, self.fractionMaxSpeed)
 
 		# ---------------- END __init__ ---------------------------
 
@@ -192,36 +209,51 @@ class MarkovTickleModule(ALModule):
 		""" NAO does this when tickled.
 
 		"""
+		
+		# Unsubscribe from all events to prevent other sensor events
 		self.easyUnsubscribeEvents()
+
+		# ALAnimatedSpeech config
+		configuration = {"bodyLanguageMode":"contextual"}
+
 		# Execute Markov transition
 		# Define how many action elements will be actioned each 'tickle' action.
-		numberElementsPerAction = int(np.random.random() * 10)
+		numberElementsPerAction = int(np.random.random() * 5)
+		print "NUMBERS = ", numberElementsPerAction
 		sayPhrase1 = ""
 		wordList1 = []
 		for i in range(numberElementsPerAction):
-			self.currentState = self.markovChoice(self.transitionMatrixWord[self.currentState])
+			self.currentStateWord = self.markovChoice(self.transitionMatrixWord[self.currentStateWord])
 			try:
-				wordList1.append(self.wordDictionary[self.currentState])
+				wordList1.append(self.wordDictionary[self.currentStateWord])
 			except Exception, e:
 				print "Word dictionary exception: ", e
+
 		# Repeat for second phrase.
-		numberElementsPerAction = int(np.random.random() * 10)
+		numberElementsPerAction = int(np.random.random() * 5)
 		sayPhrase2 = ""
 		wordList2 = []
 		for i in range(numberElementsPerAction):
-			self.currentState = self.markovChoice(self.transitionMatrixWord[self.currentState])
+			self.currentStateWord = self.markovChoice(self.transitionMatrixWord[self.currentStateWord])
 			try:
-				wordList2.append(self.wordDictionary[self.currentState])
+				wordList2.append(self.wordDictionary[self.currentStateWord])
 			except Exception, e:
 				print "Word dictionary exception: ", e
+
+		# Get two Markovian actions
+		self.currentStateAction = self.markovChoice(self.transitionMatrixAction[self.currentStateAction])
+		doAction1 = self.actionDictionary[self.currentStateAction]
+		self.currentStateAction = self.markovChoice(self.transitionMatrixAction[self.currentStateAction])
+		doAction2 = self.actionDictionary[self.currentStateAction]
 
 		# Voice output
 		sayPhrase1 = " ".join(wordList1)
 		sayPhrase2 = " ".join(wordList2)
-		tickleSentence = "" + sayPhrase1 + "" + sayPhrase2 + " "
+		tickleSentence = " ^start(" + doAction1 + ") " + sayPhrase1 + " ^start(" + doAction2 + ") " + sayPhrase2
+		print tickleSentence
 
-		wordPitch = 1.25
-		laughPitch = 1.5
+		wordPitch = 1.0
+		laughPitch = 1.0
 		normalPitch = 0
 		doubleVoiceLaugh = 1.0
 		doubleVoiceNormal = 0
@@ -232,10 +264,13 @@ class MarkovTickleModule(ALModule):
 		speechProxy.setParameter("pitchShift", laughPitch)
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
 				
-		speechProxy.say(tickleSentence)
+		animateProxy.say(tickleSentence, configuration)
 		
 		speechProxy.setParameter("pitchShift", normalPitch)
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
+
+		# Return to default pose
+		bodyProxy.goToPosture(self.defaultPose, self.fractionMaxSpeed)
 
 		self.easySubscribeEvents("tickled")
 
@@ -316,7 +351,7 @@ def main():
 	except KeyboardInterrupt:
 		print "Interrupted by user, shutting down"
 		MarkovTickle.easyUnsubscribeEvents()
-		MarkovTickle.bodyProxy("Crouch", 0.8)
+		MarkovTickle.bodyProxy.goToPosture("SitRelax", 0.8)
 		# stop any post tasks
 		# eg void ALModule::stop(const int& id)
 		try:
