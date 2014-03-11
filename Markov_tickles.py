@@ -1,10 +1,14 @@
-# -*- encoding: UTF-8 -*-
+# -*- coding: ascii -*-
 """ NAO responds to being tickled.
 
-@author: Mike McFarlane
 
 """
 
+__author__ = "Mike McFarlane mike@mikemcfarlane.co.uk"
+__version__ = "Revision: 0.14"
+__date__ = "Date: 11-04-14"
+__copyright__ = "Copyright (c)Mike McFarlane 2014"
+__license__ = "TBC"
 
 
 # DESCRIPTION:
@@ -38,12 +42,12 @@
 import time
 import sys
 import numpy as np
+from optparse import OptionParser
+import Markov_tickles_exceptions as mte
 
 from naoqi import ALProxy
 from naoqi import ALBroker
 from naoqi import ALModule
-
-from optparse import OptionParser
 
 NAO_IP = "mistcalf.local"
 
@@ -208,8 +212,7 @@ class MarkovTickleModule(ALModule):
 		cum = 0
 		
 		if round(np.sum(inMatrix)) != 1:
-			print "Not a P matrix"
-			# todo: exception handling
+			raise mte.MatrixError("Not a valid array")
 		else:
 			for index, probability in enumerate(inMatrix):
 				cum += probability
