@@ -18,16 +18,16 @@ NAO_IP = "mistcalf.local"
 # Global variables to store module instances and proxies
 MarkovTickle = None
 
-class MarkovTickleModule():
+class MarkovTickleModule(ALModule):
 	""" Simple module for tickling NAO. 
 
 	"""
 
-	# def __init__(self, name):
-	# 	""" Initialise module. 
+	def __init__(self, name):
+		""" Initialise module. 
 
-	# 	"""
-	# 	ALModule.__init__(self, name)
+		"""
+		ALModule.__init__(self, name)
 		
 
 	def markovChoice(self, inMatrix):
@@ -88,15 +88,3 @@ def main():
 
 if __name__ == "__main__":
 	main()
-		
-
-
-
-
-
-
-
-
-
-
-
