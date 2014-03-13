@@ -18,16 +18,16 @@ NAO_IP = "mistcalf.local"
 # Global variables to store module instances and proxies
 MarkovTickle = None
 
-class MarkovTickleModule(ALModule):
+class MarkovTickleModule():
 	""" Simple module for tickling NAO. 
 
 	"""
 
-	def __init__(self, name):
-		""" Initialise module. 
+	# def __init__(self, name):
+	# 	""" Initialise module. 
 
-		"""
-		ALModule.__init__(self, name)
+	# 	"""
+	# 	ALModule.__init__(self, name)
 		
 
 	def markovChoice(self, inMatrix):
@@ -38,7 +38,8 @@ class MarkovTickleModule(ALModule):
 		cum = 0
 		
 		if round(np.sum(inMatrix)) != 1:
-			print "This is not a p array."
+			# print "This is not a p array."
+			raise ValueError
 		else:
 			for index, probability in enumerate(inMatrix):
 				cum += probability
@@ -89,7 +90,7 @@ if __name__ == "__main__":
 	main()
 		
 
-	
+
 
 
 
