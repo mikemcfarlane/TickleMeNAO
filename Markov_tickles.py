@@ -43,7 +43,9 @@ import time
 import sys
 import numpy as np
 from optparse import OptionParser
-import Markov_tickles_exceptions as mte
+
+# todo: investigate custom exceptions when more time
+#import Markov_tickles_exceptions as mte
 
 from naoqi import ALProxy
 from naoqi import ALBroker
@@ -212,16 +214,15 @@ class MarkovTickleModule(ALModule):
 		cum = 0
 		sumMatrix = np.sum(inMatrix)
 
-		try:
-			if not abs(sumMatrix - 1.0) < 1e-10:
-				raise Exception("Not a p array")
-			else:
-				for index, probability in enumerate(inMatrix):
-					cum += probability
-					if cum > randNum:
-						return index
-		except Exception, e:
-			print "Failed to choose a value from transition matrix, error: ", e
+		
+		if not abs(sumMatrix - 1.0) < 1e-10:
+			raise ValueError("Not a p array")
+		else:
+			for index, probability in enumerate(inMatrix):
+				cum += probability
+				if cum > randNum:
+					return index
+	
 
 
 
@@ -229,7 +230,7 @@ class MarkovTickleModule(ALModule):
 		""" NAO does this when tickled.
 
 		"""
-		
+
 		# Unsubscribe from all events to prevent other sensor events
 		self.easyUnsubscribeEvents()
 
@@ -242,29 +243,36 @@ class MarkovTickleModule(ALModule):
 		print "NUMBERS = ", numberElementsPerAction
 		sayPhrase1 = ""
 		wordList1 = []
-		for i in range(numberElementsPerAction):
-			self.currentStateWord = self.markovChoice(self.transitionMatrixWord[self.currentStateWord])
-			try:
-				wordList1.append(self.wordDictionary[self.currentStateWord])
-			except Exception, e:
-				print "Word dictionary exception: ", e
 
-		# Repeat for second phrase.
-		numberElementsPerAction = int(np.random.random() * 5)
-		sayPhrase2 = ""
-		wordList2 = []
-		for i in range(numberElementsPerAction):
-			self.currentStateWord = self.markovChoice(self.transitionMatrixWord[self.currentStateWord])
-			try:
-				wordList2.append(self.wordDictionary[self.currentStateWord])
-			except Exception, e:
-				print "Word dictionary exception: ", e
+		# todo: is this the best place for the try? Primarily to catch exceptions from markovChoice()
+		try:
 
-		# Get two Markovian actions
-		self.currentStateAction = self.markovChoice(self.transitionMatrixAction[self.currentStateAction])
-		doAction1 = self.actionDictionary[self.currentStateAction]
-		self.currentStateAction = self.markovChoice(self.transitionMatrixAction[self.currentStateAction])
-		doAction2 = self.actionDictionary[self.currentStateAction]
+			for i in range(numberElementsPerAction):
+				self.currentStateWord = self.markovChoice(self.transitionMatrixWord[self.currentStateWord])
+				try:
+					wordList1.append(self.wordDictionary[self.currentStateWord])
+				except Exception, e:
+					print "Word dictionary exception: ", e
+
+			# Repeat for second phrase.
+			numberElementsPerAction = int(np.random.random() * 5)
+			sayPhrase2 = ""
+			wordList2 = []
+			for i in range(numberElementsPerAction):
+				self.currentStateWord = self.markovChoice(self.transitionMatrixWord[self.currentStateWord])
+				try:
+					wordList2.append(self.wordDictionary[self.currentStateWord])
+				except Exception, e:
+					print "Word dictionary exception: ", e
+
+			# Get two Markovian actions
+			self.currentStateAction = self.markovChoice(self.transitionMatrixAction[self.currentStateAction])
+			doAction1 = self.actionDictionary[self.currentStateAction]
+			self.currentStateAction = self.markovChoice(self.transitionMatrixAction[self.currentStateAction])
+			doAction2 = self.actionDictionary[self.currentStateAction]
+
+		except ValueError, e:
+			print "ValueError from markovChoice: ", e
 
 		# Voice output
 		sayPhrase1 = " ".join(wordList1)
