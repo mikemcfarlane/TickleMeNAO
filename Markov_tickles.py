@@ -210,14 +210,18 @@ class MarkovTickleModule(ALModule):
 		"""
 		randNum = np.random.random()
 		cum = 0
-		
-		if round(np.sum(inMatrix)) != 1:
-			raise mte.MatrixError("Not a valid array")
-		else:
-			for index, probability in enumerate(inMatrix):
-				cum += probability
-				if cum > randNum:
-					return index
+		sumMatrix = np.sum(inMatrix)
+
+		try:
+			if not abs(sumMatrix - 1.0) < 1e-10:
+				raise Exception("Not a p array")
+			else:
+				for index, probability in enumerate(inMatrix):
+					cum += probability
+					if cum > randNum:
+						return index
+		except Exception, e:
+			print "Failed to choose a value from transition matrix, error: ", e
 
 
 
@@ -368,6 +372,7 @@ def main():
 		print "Interrupted by user, shutting down"
 		MarkovTickle.easyUnsubscribeEvents()
 		MarkovTickle.bodyProxy.goToPosture("SitRelax", 0.8)
+		MarkovTickle.robotMotionProxy.wakeUp()
 		# stop any post tasks
 		# eg void ALModule::stop(const int& id)
 		try:

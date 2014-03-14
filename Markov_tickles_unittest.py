@@ -8,50 +8,62 @@ __date__ = "Date: 11-04-14"
 __copyright__ =  "Copyright (c) Mike McFarlane 2014"
 __license__ = "TBC"
 
-from Markov_tickles.MarkovTickleModule import markovChoice
+from Markov_tickles import MarkovTickleModule
 import unittest
+
+from naoqi import ALProxy
+from naoqi import ALBroker
+from naoqi import ALModule
+
+NAO_IP = "mistcalf.local"
 
 
 class ToMarkovChoiceGoodInput(unittest.TestCase):
 	""" Markov choice should give known result with known input.
 
 	"""
-	
-	def smallMatrix(self):
-		a = mt.markovChoice([1])
-		b = 0
-		self.assertGreaterEqual(a, b)
 
-	def largeMatrix(self):
-		a = mt.markovChoice([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
-		b = 0
-		self.assertGreaterEqual(a, b)
+	def setUp(self):
+		self.myBroker = ALBroker("myBroker", "0.0.0.0", 0, NAO_IP, 9559)
+		self.MarkovTickle = MarkovTickleModule("MarkovTickle")
 
+	def tearDown(self):
+		self.MarkovTickle = None
+		self.myBroker.shutdown()
+		
+	def testSmallMatrix(self):
+		testValue = [1]
+		self.assertRaises(Exception, self.MarkovTickle.markovChoice, testValue)
+
+	def testLargeMatrix(self):
+		testValue = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+		self.assertRaises(Exception, self.MarkovTickle.markovChoice, testValue)
 
 class ToMarkovChoiceBadInput(unittest.TestCase):
-	""" Markov choice should give error if unknown input.
+	""" Markov choice should give error if bad input.
 
 	"""
 
-	def smallMatrix(self):
-		a = mt.markovChoice([2])
-		b = 0
-		self.assertGreaterEqual(a, b)
+	def setUp(self):
+		self.myBroker = ALBroker("myBroker", "0.0.0.0", 0, NAO_IP, 9559)
+		self.MarkovTickle = MarkovTickleModule("MarkovTickle")
 
-	def largeMatrix(self):
-		a = mt.markovChoice([0.9, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
-		b = 0
-		self.assertGreaterEqual(a, b)
+	def tearDown(self):
+		self.MarkovTickle = None
+		self.myBroker.shutdown()
+	
+	def testSmallMatrix(self):
+		testValue = [2]
+		self.assertRaises(Exception, self.MarkovTickle.markovChoice, testValue)
 
+	def testLargeMatrix(self):
+		testValue = [0.9, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+		self.assertRaises(Exception, self.MarkovTickle.markovChoice, testValue)
+	
 
-def main():
+if __name__ == "__main__":
 	print "\n"
 	print "Running Markov_tickles unit tests"
 	print "\n"
-	
-	print markovChoice([1])
 
-	#unittest.main()
-
-if __name__ == "__main__":
-	main()
+	unittest.main()
