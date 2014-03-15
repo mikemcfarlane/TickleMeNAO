@@ -93,7 +93,8 @@ class MarkovTickleModule(ALModule):
 
 		# Variables for the Markov Chain Transition Matrices
 		self.currentStateWord = 0
-		self.currentStateAction = 0
+		self.currentStateActionLeftArm = 0
+		self.currentStateActionRightArm = 0
 		
 		self.wordDictionary = {0 : 'ha',
 								1 : "ha ha",
@@ -190,8 +191,7 @@ class MarkovTickleModule(ALModule):
 			for index, probability in enumerate(inMatrix):
 				cum += probability
 				if cum > randNum:
-					return index
-	
+					return index	
 
 
 
@@ -230,8 +230,9 @@ class MarkovTickleModule(ALModule):
 					print "Word dictionary exception: ", e
 			
 			# Get Markovian action
-			self.currentStateAction = self.markovChoice(self.transitionMatrixAction[self.currentStateAction])
-			
+			self.currentStateActionLeftArm = self.markovChoice(self.transitionMatrixAction[self.currentStateActionLeftArm])
+			self.currentStateActionRightArm = self.markovChoice(self.transitionMatrixAction[self.currentStateActionRightArm])
+
 		except ValueError, e:
 			print "ValueError from markovChoice: ", e
 
@@ -240,35 +241,18 @@ class MarkovTickleModule(ALModule):
 		tickleSentence = sayPhrase1
 
 		# Build motion lists.
-		namesLeft = list()
-		# todo: replace time data with parametric values, or see ipnb for other ideas.
-		timesLeft = list()
-		keysLeft = list()
-
-		namesRight = list()
-		timesRight = list()
-		keysRight = list()
-
 		names = list()
+		# todo: replace time data with parametric values, or see ipnb for other ideas.
 		times = list()
 		keys = list()
+		movementList = list()
 
-		for n, t, k in mtmd.leftArmMovementList[self.currentStateAction]:
-			namesLeft.append(n)
-			timesLeft.append(t)
-			keysLeft.append(k)
-
-		for n, t, k in mtmd.rightArmMovementList[self.currentStateAction]:
-			namesRight.append(n)
-			timesRight.append(t)
-			keysRight.append(k)
-
-		names = namesLeft + namesRight
-		times = timesLeft + timesRight
-		keys = keysLeft + keysRight
-		print names
-		print times
-		print keys
+		movementList = mtmd.leftArmMovementList[self.currentStateActionLeftArm] + mtmd.rightArmMovementList[self.currentStateActionRightArm]
+		
+		for n, t, k in movementList:
+			names.append(n)
+			times.append(t)
+			keys.append(k)
 
 		# Say and do.
 		speechProxy.setVoice(voice1)
@@ -276,7 +260,7 @@ class MarkovTickleModule(ALModule):
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
 
 		try:
-			robotMotionProxy.post.angleInterpolation(namesLeft, keysLeft, timesLeft, True)
+			robotMotionProxy.post.angleInterpolation(names, keys, times, True)
 		except Exception, e:
 			print "robotMotionProxy error: ", e
 		
@@ -304,7 +288,7 @@ class MarkovTickleModule(ALModule):
 			print "Interrupted by user, shutting down"
 			self.easyUnsubscribeEvents()
 			bodyProxy.goToPosture("Crouch", 0.8)
-			robotMotionProxy.wakeUp()
+			robotMotionProxy.rest()
 			# stop any post tasks
 			# eg void ALModule::stop(const int& id)
 			try:
