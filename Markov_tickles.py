@@ -43,6 +43,7 @@ import time
 import sys
 import numpy as np
 from optparse import OptionParser
+import Markov_tickles_motion_data as mtmd
 
 # todo: investigate custom exceptions when more time
 #import Markov_tickles_exceptions as mte

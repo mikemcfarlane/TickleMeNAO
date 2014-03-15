@@ -1,4 +1,4 @@
-
+# -*- coding: ascii -*-
 """ Motion data for Markov_tickles.py
 
 
