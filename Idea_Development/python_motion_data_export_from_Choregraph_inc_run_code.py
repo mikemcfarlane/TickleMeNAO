@@ -11,13 +11,6 @@ __date__ = "Date: 15-04-14"
 __copyright__ = "Copyright (c)Mike McFarlane 2014"
 __license__ = "TBC"
 
-# Choregraphe simplified export in Python.
-from naoqi import ALProxy
-from pprint import pprint
-
-names = list()
-times = list()
-keys = list()
 
 
 ##############################################################
@@ -251,27 +244,40 @@ leftArmMovementList3 = [
 
 ##############################################################
 
-leftArmMovementList = [leftArmMovementList0, leftArmMovementList1, leftArmMovementList2, leftArmMovementList3]
+def main():
+	""" Simple code to test above motion data. """
+	# Choregraphe simplified export in Python.
+	from naoqi import ALProxy
+	from pprint import pprint
 
-choice = 2
+	names = list()
+	times = list()
+	keys = list()
 
-for n, t, k in leftArmMovementList[1]:
-	names.append(n)
-	times.append(t)
-	keys.append(k)
+	leftArmMovementList = [leftArmMovementList0, leftArmMovementList1, leftArmMovementList2, leftArmMovementList3]
+
+	choice = 2
+
+	for n, t, k in leftArmMovementList[1]:
+		names.append(n)
+		times.append(t)
+		keys.append(k)
 
 
 
-try:
-	# uncomment the following line and modify the IP if you use this script outside Choregraphe.
-	IP = "mistcalf.local"
-	motion = ALProxy("ALMotion", IP, 9559)
-	posture = ALProxy("ALRobotPosture", IP, 9559)
-	motion.wakeUp()
-	posture.goToPosture("StandInit", 0.8)
-	# motion = ALProxy("ALMotion")
-	motion.angleInterpolation(names, keys, times, True)
-	posture.goToPosture("Crouch", 0.8)
-	motion.rest()
-except BaseException, err:
-	print err
+	try:
+		# uncomment the following line and modify the IP if you use this script outside Choregraphe.
+		IP = "mistcalf.local"
+		motion = ALProxy("ALMotion", IP, 9559)
+		posture = ALProxy("ALRobotPosture", IP, 9559)
+		motion.wakeUp()
+		posture.goToPosture("StandInit", 0.8)
+		# motion = ALProxy("ALMotion")
+		motion.angleInterpolation(names, keys, times, True)
+		posture.goToPosture("Crouch", 0.8)
+		motion.rest()
+	except BaseException, err:
+		print err
+
+if __name__ == '__main__':
+	main()

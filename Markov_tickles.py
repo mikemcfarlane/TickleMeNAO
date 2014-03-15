@@ -63,6 +63,7 @@ bodyProxy = None
 leftArmProxy = None
 rightArmProxy = None
 robotMotionProxy = None
+myBroker = None
 
 
 
@@ -88,27 +89,12 @@ class MarkovTickleModule(ALModule):
 
 		# Variables for movement
 		self.fractionMaxSpeed = 0.8
-		self.defaultPose = "Sit"
+		self.defaultPose = "Stand"
 
 		# Variables for the Markov Chain Transition Matrices
 		self.currentStateWord = 0
 		self.currentStateAction = 0
-		self.actionSittingDictionary = {0 : 'animations/Sit/BodyTalk/BodyTalk_1',
-								1 : 'animations/Sit/BodyTalk/BodyTalk_10',
-								2 : 'animations/Sit/BodyTalk/BodyTalk_11',
-								3 : 'animations/Sit/BodyTalk/BodyTalk_12'
-								}
-
-		self.actionStandingDictionary = {0 : 'animations/Stand/Gestures/Enthusiastic_4',
-								1 : 'animations/Stand/Gestures/Enthusiastic_5',
-								2 : 'animations/Stand/Gestures/Hey_1',
-								3 : 'animations/Stand/Gestures/Hey_6'
-								}
-		if self.defaultPose == 'Sit':
-			self.actionDictionary = self.actionSittingDictionary
-		else:
-			self.actionDictionary = self.actionStandingDictionary
-
+		
 		self.wordDictionary = {0 : 'ha',
 								1 : "ha ha",
 								2 : "he",
@@ -134,14 +120,6 @@ class MarkovTickleModule(ALModule):
 											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
 											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01]]
 											)
-
-		# # Check matrix test code.
-		# sum = 0
-		# for i, j in enumerate(self.transitionMatrixWord):
-		# 	for k, l in enumerate(j):
-		# 		print "i: %s, k: %s, l: %s" % (i, k, l)
-		# 		sum += l
-		# print "sum of matrix: %s" % sum
 		
 		# Lists for large setup items e.g. subscribe, unsubscribe
 		self.subscriptionList = ["RightBumperPressed",
@@ -235,13 +213,19 @@ class MarkovTickleModule(ALModule):
 		# Unsubscribe from all events to prevent other sensor events
 		self.easyUnsubscribeEvents()
 
-		# ALAnimatedSpeech config
-		configuration = {"bodyLanguageMode":"contextual"}
+		# Speech parameters.
+		wordPitch = 1.0
+		laughPitch = 1.5
+		normalPitch = 0
+		doubleVoiceLaugh = 1.0
+		doubleVoiceNormal = 0
+		voice1 = "allison"
+		voice2 = "audrey"
 
 		# Execute Markov transition
 		# Define how many action elements will be actioned each 'tickle' action.
-		numberElementsPerAction = int(np.random.random() * 5)
-		print "NUMBERS = ", numberElementsPerAction
+		# Add 1 so something always happens.
+		numberElementsPerAction = int(np.random.random() * 5) + 1
 		sayPhrase1 = ""
 		wordList1 = []
 
@@ -254,46 +238,45 @@ class MarkovTickleModule(ALModule):
 					wordList1.append(self.wordDictionary[self.currentStateWord])
 				except Exception, e:
 					print "Word dictionary exception: ", e
-
-			# Repeat for second phrase.
-			numberElementsPerAction = int(np.random.random() * 5)
-			sayPhrase2 = ""
-			wordList2 = []
-			for i in range(numberElementsPerAction):
-				self.currentStateWord = self.markovChoice(self.transitionMatrixWord[self.currentStateWord])
-				try:
-					wordList2.append(self.wordDictionary[self.currentStateWord])
-				except Exception, e:
-					print "Word dictionary exception: ", e
-
-			# Get two Markovian actions
+			
+			# Get Markovian action
 			self.currentStateAction = self.markovChoice(self.transitionMatrixAction[self.currentStateAction])
-			doAction1 = self.actionDictionary[self.currentStateAction]
-			self.currentStateAction = self.markovChoice(self.transitionMatrixAction[self.currentStateAction])
-			doAction2 = self.actionDictionary[self.currentStateAction]
-
+			
 		except ValueError, e:
 			print "ValueError from markovChoice: ", e
 
-		# Voice output
+		# Voice output.
 		sayPhrase1 = " ".join(wordList1)
-		sayPhrase2 = " ".join(wordList2)
-		tickleSentence = " ^start(" + doAction1 + ") " + sayPhrase1 + " ^start(" + doAction2 + ") " + sayPhrase2
-		print tickleSentence
+		tickleSentence = sayPhrase1
 
-		wordPitch = 1.0
-		laughPitch = 1.0
-		normalPitch = 0
-		doubleVoiceLaugh = 1.0
-		doubleVoiceNormal = 0
-		voice1 = "allison"
-		voice2 = "audrey"
-		
+		# Build motion lists.
+		namesLeft = list()
+		# todo: replace time data with parametric values
+		timesLeft = list()
+		keysLeft = list()
+
+		namesRight = list()
+		timesRight = list()
+		keysRight = list()
+
+		for n, t, k in mtmd.leftArmMovementList[self.currentStateAction]:
+			namesLeft.append(n)
+			timesLeft.append(t)
+			keysLeft.append(k)
+
+		for n, t, k in mtmd.rightArmMovementList[self.currentStateAction]:
+			namesRight.append(n)
+			timesRight.append(t)
+			keysRight.append(k)
+
+		# Say and do.
 		speechProxy.setVoice(voice1)
 		speechProxy.setParameter("pitchShift", laughPitch)
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
-				
-		animateProxy.say(tickleSentence, configuration)
+
+		robotMotionProxy.post.angleInterpolation(namesLeft, keysLeft, timesLeft, True)
+		robotMotionProxy.post.angleInterpolation(namesRight, keysRight, timesRight, True)
+		speechProxy.say(tickleSentence)
 		
 		speechProxy.setParameter("pitchShift", normalPitch)
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
@@ -307,10 +290,28 @@ class MarkovTickleModule(ALModule):
 		""" Temp main task.
 
 		"""
-		# Run forever
-		while True:
-			print ("Alive!")
-			time.sleep(1.0)
+		global myBroker
+
+		try:
+			while True:
+				print ("Alive!")
+				time.sleep(1)
+		except KeyboardInterrupt:
+			print "Interrupted by user, shutting down"
+			self.easyUnsubscribeEvents()
+			bodyProxy.goToPosture("Crouch", 0.8)
+			robotMotionProxy.wakeUp()
+			# stop any post tasks
+			# eg void ALModule::stop(const int& id)
+			try:
+				myBroker.shutdown()
+			except Exception, e:
+				print "Error shutting down broker: ", e
+			try:
+				sys.exit(0)
+			except Exception, e:
+				print "Error exiting system: ", e
+
 
 	def easySubscribeEvents(self, callback):
 		""" Subscribes to all events in subscriptionList.
@@ -359,6 +360,7 @@ def main():
 	# We need this broker to be able to construct
 	# NAOqi modules and subscribe to other modules
 	# The broker must   stay alive until the program exists
+	global myBroker
 	myBroker = ALBroker("myBroker",
 	   "0.0.0.0",   # listen to anyone
 	   0,           # find a free port and use it
@@ -381,7 +383,7 @@ def main():
 		print "Interrupted by user, shutting down"
 		MarkovTickle.easyUnsubscribeEvents()
 		MarkovTickle.bodyProxy.goToPosture("SitRelax", 0.8)
-		MarkovTickle.robotMotionProxy.wakeUp()
+		MarkovTickle.robotMotionProxy.rest()
 		# stop any post tasks
 		# eg void ALModule::stop(const int& id)
 		try:
