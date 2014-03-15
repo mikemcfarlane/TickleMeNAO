@@ -142,16 +142,6 @@ class MarkovTickleModule(ALModule):
 			print "Could not create proxy to ALRobotPosture. Error: ", e
 			
 		try:
-			leftArmProxy = ALProxy("ALRobotPosture")
-		except Exception, e:
-			print "Could not create proxy to ALRobotPosture. Error: ", e
-			
-		try:
-			rightArmProxy = ALProxy("ALRobotPosture")
-		except Exception, e:
-			print "Could not create proxy to ALRobotPosture. Error: ", e
-			
-		try:
 			robotMotionProxy = ALProxy("ALMotion")
 		except Exception, e:
 			print "Could not create proxy to ALMotion. Error: ", e
@@ -251,13 +241,17 @@ class MarkovTickleModule(ALModule):
 
 		# Build motion lists.
 		namesLeft = list()
-		# todo: replace time data with parametric values
+		# todo: replace time data with parametric values, or see ipnb for other ideas.
 		timesLeft = list()
 		keysLeft = list()
 
 		namesRight = list()
 		timesRight = list()
 		keysRight = list()
+
+		names = list()
+		times = list()
+		keys = list()
 
 		for n, t, k in mtmd.leftArmMovementList[self.currentStateAction]:
 			namesLeft.append(n)
@@ -269,13 +263,23 @@ class MarkovTickleModule(ALModule):
 			timesRight.append(t)
 			keysRight.append(k)
 
+		names = namesLeft + namesRight
+		times = timesLeft + timesRight
+		keys = keysLeft + keysRight
+		print names
+		print times
+		print keys
+
 		# Say and do.
 		speechProxy.setVoice(voice1)
 		speechProxy.setParameter("pitchShift", laughPitch)
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
 
-		robotMotionProxy.post.angleInterpolation(namesLeft, keysLeft, timesLeft, True)
-		robotMotionProxy.post.angleInterpolation(namesRight, keysRight, timesRight, True)
+		try:
+			robotMotionProxy.post.angleInterpolation(namesLeft, keysLeft, timesLeft, True)
+		except Exception, e:
+			print "robotMotionProxy error: ", e
+		
 		speechProxy.say(tickleSentence)
 		
 		speechProxy.setParameter("pitchShift", normalPitch)
