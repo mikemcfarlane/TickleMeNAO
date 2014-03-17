@@ -1,4 +1,7 @@
 
+""" Explore LED colour changes in a list.
+
+"""
 import sys
 from naoqi import ALProxy
 
