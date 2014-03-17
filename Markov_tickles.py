@@ -64,6 +64,7 @@ leftArmProxy = None
 rightArmProxy = None
 robotMotionProxy = None
 myBroker = None
+LEDProxy = None
 
 
 
@@ -86,6 +87,7 @@ class MarkovTickleModule(ALModule):
 		global leftArmProxy
 		global rightArmProxy
 		global robotMotionProxy
+		global LEDProxy
 
 		# Variables for movement
 		self.fractionMaxSpeed = 0.8
@@ -95,6 +97,8 @@ class MarkovTickleModule(ALModule):
 		self.currentStateWord = 0
 		self.currentStateActionLeftArm = 0
 		self.currentStateActionRightArm = 0
+		self.currentStateInvite = 0
+		self.currentStateLEDs = 0
 		
 		self.wordDictionary = {0 : 'ha',
 								1 : "ha ha",
@@ -106,12 +110,38 @@ class MarkovTickleModule(ALModule):
 								7 : "Fookin hell that tickles me!"
 								}
 
+		self.inviteToTickleDictionary = {0 : "Would you like to tickle me?",
+											1 : "I bet you can't find my tickly spot!",
+											2 : "Go on, tickle me!",
+											3 : "Tickle Me NAO!"
+
+								}
+
+		self.RGBColourDict = { 0 : [255, 0, 0], # red
+						 1 : [0, 255, 0], # green
+						 2 : [0, 0, 255], # blue
+						 3 : [255, 255, 0], # yellow
+						 4 : [255, 51, 153], # pink
+						 5 : [204, 0, 204], # purple
+						 6 : [255, 153, 51], # orange
+						 7 : [255, 255, 255], # white
+						 8 : [0, 0, 0], # black?
+						 9 : [0 ,204, 204] # aqua
+						 }
+
 		# Transition matrices in numpy format
 		self.transitionMatrixAction = np.array([[0.25, 0.25, 0.25, 0.25],
 										[0.25, 0.25, 0.25, 0.25],
 										[0.25, 0.25, 0.25, 0.25],
 										[0.25, 0.25, 0.25, 0.25]]
 										)
+
+		self.transitionMatrixInviteToTickle = np.array([[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25]]
+										)
+
 		self.transitionMatrixWord = np.array([[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
 											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
 											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
@@ -120,6 +150,19 @@ class MarkovTickleModule(ALModule):
 											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
 											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
 											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01]]
+											)
+
+		self.transitionMatrixLEDs = np.array([[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+											[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+											]
 											)
 		
 		# Lists for large setup items e.g. subscribe, unsubscribe
@@ -161,6 +204,10 @@ class MarkovTickleModule(ALModule):
 			memory = ALProxy("ALMemory")
 		except Exception, e:
 			print "Could not create proxy to ALMemory. Error: ", e
+		try:
+			LEDProxy = ALProxy("ALLeds")
+		except Exception, e:
+			print "Could not create proxy to ALLeds. Error: ", e
 			
 
 		# Subscribe to the sensor events.
@@ -172,6 +219,10 @@ class MarkovTickleModule(ALModule):
 		
 		# Go to default posture.
 		bodyProxy.goToPosture(self.defaultPose, self.fractionMaxSpeed)
+
+		# Invite to play the game:-)
+		self.inviteToTickle()
+
 
 		# ---------------- END __init__ ---------------------------
 
@@ -191,8 +242,27 @@ class MarkovTickleModule(ALModule):
 			for index, probability in enumerate(inMatrix):
 				cum += probability
 				if cum > randNum:
-					return index	
+					return index
 
+	def inviteToTickle(self):
+		""" Say a random phrases to invite tickling. 
+
+		"""
+		self.currentStateInvite = self.markovChoice(self.transitionMatrixInviteToTickle[self.currentStateInvite])
+		randomInviteToTicklePhrase = self.inviteToTickleDictionary[self.currentStateInvite]
+		speechProxy.say(randomInviteToTicklePhrase)
+		# Reset invite timer.
+		self.inviteTimer = 0	
+
+	def convertRGBToHex(self, list):
+		""" Converts an input list of RGB values to hex, return the hex value.
+
+		"""
+		if len(list) == 3:
+			hexColour = 256 * 256 * list[0] + 256 * list[1] + list[2]
+		else:
+			raise ValueError("Not a valid RGB list.")
+		return hexColour
 
 
 	def tickled(self):
@@ -211,68 +281,88 @@ class MarkovTickleModule(ALModule):
 		doubleVoiceNormal = 0
 		voice1 = "allison"
 		voice2 = "audrey"
-
-		# Execute Markov transition
 		# Define how many action elements will be actioned each 'tickle' action.
 		# Add 1 so something always happens.
-		numberElementsPerAction = int(np.random.random() * 5) + 1
-		sayPhrase1 = ""
+		numWordsPerTickle = int(np.random.random() * 5) + 1
 		wordList1 = []
 
+		# LED parameters
+		LEDGroupName = 'AllLeds'
+		LEDGroupDuration = 1.0
+		numLEDChangesPerTickle = int(np.random.random() * 5) + 5
+		LEDdurationList = [LEDGroupDuration] * numLEDChangesPerTickle
+		RGBList = []
+
+		# Execute Markov transition
+		# Build word list, LED colour change list, and select body movements.
 		# todo: is this the best place for the try? Primarily to catch exceptions from markovChoice()
 		try:
-
-			for i in range(numberElementsPerAction):
+			# Words.
+			for i in range(numWordsPerTickle):
 				self.currentStateWord = self.markovChoice(self.transitionMatrixWord[self.currentStateWord])
 				try:
 					wordList1.append(self.wordDictionary[self.currentStateWord])
 				except Exception, e:
 					print "Word dictionary exception: ", e
-			
-			# Get Markovian action
+			# LED colour changes.		
+			for i in range(numLEDChangesPerTickle):
+				self.currentStateLEDs = self.markovChoice(self.transitionMatrixLEDs[self.currentStateLEDs])
+				colour = self.RGBColourDict[self.currentStateLEDs]
+				try:
+					hexColour = self.convertRGBToHex(colour)
+					RGBList.append(hexColour)
+				except Exception, e:
+					print "LED colour selection error: ", e
+			# Set Markovian action.
 			self.currentStateActionLeftArm = self.markovChoice(self.transitionMatrixAction[self.currentStateActionLeftArm])
 			self.currentStateActionRightArm = self.markovChoice(self.transitionMatrixAction[self.currentStateActionRightArm])
-
 		except ValueError, e:
 			print "ValueError from markovChoice: ", e
 
+		# Build action lists.
 		# Voice output.
-		sayPhrase1 = " ".join(wordList1)
-		tickleSentence = sayPhrase1
-
-		# Build motion lists.
-		names = list()
+		tickleSentence = " ".join(wordList1)
+		# Build motion.
+		namesMotion = []
 		# todo: replace time data with parametric values, or see ipnb for other ideas.
-		times = list()
-		keys = list()
-		movementList = list()
-
+		timesMotion = []
+		keysMotion = []
+		movementList = []
 		movementList = mtmd.leftArmMovementList[self.currentStateActionLeftArm] + mtmd.rightArmMovementList[self.currentStateActionRightArm]
-		
 		for n, t, k in movementList:
-			names.append(n)
-			times.append(t)
-			keys.append(k)
+			namesMotion.append(n)
+			timesMotion.append(t)
+			keysMotion.append(k)
+
 
 		# Say and do.
 		speechProxy.setVoice(voice1)
 		speechProxy.setParameter("pitchShift", laughPitch)
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
-
 		try:
-			robotMotionProxy.post.angleInterpolation(names, keys, times, True)
+			robotMotionProxy.post.angleInterpolation(namesMotion, keysMotion, timesMotion, True)
 		except Exception, e:
 			print "robotMotionProxy error: ", e
-		
+		try:
+			LEDProxy.post.fadeListRGB(LEDGroupName, RGBList, LEDdurationList)			
+		except Exception, e:
+			print "LEDProxy error: ", e
 		speechProxy.say(tickleSentence)
-		
+
+		# Tidy up.		
 		speechProxy.setParameter("pitchShift", normalPitch)
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
-
 		# Return to default pose
 		bodyProxy.goToPosture(self.defaultPose, self.fractionMaxSpeed)
+		# Reset invite timer.
+		self.inviteTimer = 0
+		# Reset all LEDs to default.
+		LEDProxy.reset(LEDGroupName)
 
+		# Resubscribe to events.
 		self.easySubscribeEvents("tickled")
+
+		
 
 	def mainTask(self):
 		""" Temp main task.
@@ -282,8 +372,13 @@ class MarkovTickleModule(ALModule):
 
 		try:
 			while True:
-				print ("Alive!")
+				print ("Alive!"), self.inviteTimer
 				time.sleep(1)
+				# If time gone by invite someone to tickle!
+				self.inviteTimer += 1
+				if self.inviteTimer == 30:
+					self.inviteToTickle()
+
 		except KeyboardInterrupt:
 			print "Interrupted by user, shutting down"
 			self.easyUnsubscribeEvents()
