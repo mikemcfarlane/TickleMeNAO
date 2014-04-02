@@ -133,6 +133,14 @@ class PickTickleTargetTest(unittest.TestCase):
 		""" Test pickTickleTarget() """
 		pass
 
+class TestGenerateGameCode(unittest.TestCase):
+	""" Test the GenerateGameCode to ensure generate a set of values between 0-0-0 and 9-9-9.
+
+	"""
+	def testGenerateGameCode(self):
+		""" Test generateGameCode() """
+		pass
+
 
 if __name__ == "__main__":
 	print "\n"

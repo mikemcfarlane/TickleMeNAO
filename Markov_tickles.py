@@ -67,6 +67,7 @@ robotMotionProxy = None
 myBroker = None
 LEDProxy = None
 batteryProxy = None
+asrProxy = None
 
 
 class MarkovTickleModule(ALModule):
@@ -90,6 +91,7 @@ class MarkovTickleModule(ALModule):
 		global robotMotionProxy
 		global LEDProxy
 		global batteryProxy
+		global asrProxy
 
 		# Variables for movement
 		self.fractionMaxSpeed = 0.8
@@ -106,6 +108,10 @@ class MarkovTickleModule(ALModule):
 		self.currentStateTickleSuccessPre = 0
 		self.currentStateTickleSuccessPost = 0
 		self.currentStateTickleAgain = 0
+		self.tickleCounter = 0
+		self.gamecode = []
+		self.yourGamecode = []
+		self.yourGamecodeCounter = 0
 
 		# Variables for tickle game
 		self.tickleTarget = ""
@@ -278,23 +284,19 @@ class MarkovTickleModule(ALModule):
 		try:
 			bodyProxy = ALProxy("ALRobotPosture")
 		except Exception, e:
-			print "Could not create proxy to ALRobotPosture. Error: ", e
-			
+			print "Could not create proxy to ALRobotPosture. Error: ", e			
 		try:
 			robotMotionProxy = ALProxy("ALMotion")
 		except Exception, e:
-			print "Could not create proxy to ALMotion. Error: ", e
-			
+			print "Could not create proxy to ALMotion. Error: ", e			
 		try:
 			speechProxy = ALProxy("ALTextToSpeech")
 		except Exception, e:
-			print "Could not create proxy to ALTextToSpeech. Error: ", e
-			
+			print "Could not create proxy to ALTextToSpeech. Error: ", e			
 		try:
 			animateProxy = ALProxy("ALAnimatedSpeech")
 		except Exception, e:
-			print "Could not create proxy to ALAnimatedSpeech. Error: ", e
-			
+			print "Could not create proxy to ALAnimatedSpeech. Error: ", e			
 		try:
 			memory = ALProxy("ALMemory")
 		except Exception, e:
@@ -307,12 +309,19 @@ class MarkovTickleModule(ALModule):
 			batteryProxy = ALProxy("ALBattery")
 		except Exception, e:
 			print "Could not create proxy to ALBattery. Error: ", e
+		try:
+			asrProxy = ALProxy("ALSpeechRecognition")
+		except Exception, e:
+			print "Could not create proxy to ALSpeechRecognition. Error: ", e
 		
 		# Subscribe to the sensor events.
 		self.easySubscribeEvents("touched")
 
 		# Pick an initial tickle target.
 		self.pickTickleTarget()
+
+		# Pick an initial game code.
+		self.generateGameCode()
 
 		# First, wake up.
 		robotMotionProxy.wakeUp()
@@ -325,6 +334,16 @@ class MarkovTickleModule(ALModule):
 
 
 		# ---------------- END __init__ ---------------------------
+
+	def generateGameCode(self):
+		""" Generates a three digit game code.
+
+		"""
+		self.gamecode = []
+		for i in range(3):
+			randNum = int(np.random.random() * 9)
+			self.gamecode.append(randNum)
+		print "gamecode: ", self.gamecode
 
 	def batteryChange(self):
 		print "Charging plug status changed."
@@ -513,6 +532,96 @@ class MarkovTickleModule(ALModule):
 		self.inviteTimer = 0
 		# Reset all LEDs to default.
 		LEDProxy.reset(LEDGroupName)
+
+	
+	def startSpeechRecognition(self):
+		""" Setup and start speech recognition. 
+
+		"""
+		asrProxy.setLanguage("English")
+		vocabulary = ["0" , "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+			   
+		try:
+			asrProxy.setVocabulary(vocabulary, False)
+		except Exception, e:
+			print " asr set vocab error ", e
+		try:
+			asrProxy.setParameter("NbHypotheses", 2)
+		except Exception, e:
+			print "asr set parameter error ", e
+		# try:
+		#     print asrProxy.getParameter("NbHypotheses")
+		# except Exception, e:
+		#     print "asr can not get parameter ", e
+		try:
+			asrProxy.subscribe("ASR")
+		except Exception, e:
+			print "asr can not subscribe ", e
+		try:
+			memory.subscribeToEvent("WordRecognized",self.getName(),"codeRecognized")
+		except Exception, e:
+			print "memory can not subscribe to wordrecognized ", e
+
+	def stopSpeechRecognition(self):
+		""" Stop speech recognition.
+
+		"""
+		try:
+			asrProxy.unsubscribe("ASR")
+			memory.unsubscribeToEvent("WordRecognized",self.getName())
+		except Exception, e:
+			print "Exception stopping speech recognition, error: ", e
+
+
+	def codeRecognized(self, key, value, message):
+		""" NAO does this when he recognizes the code number.
+
+		"""
+		
+		try:
+			memory.unsubscribeToEvent("WordRecognized", self.getName())
+		except Exception, e:
+			print "could not unsubscribe from wordrecognized ", e
+		# get WordRecognized
+		youSaid = memory.getData("WordRecognized")
+		# tell the human some stuff
+		wordSaid = youSaid[0]
+		wordSaidProbability = youSaid[1]
+		tellMeWordSaid = "You said " + wordSaid
+		speechProxy.say(tellMeWordSaid)
+		if wordSaidProbability <= 0.4:
+			speechProxy.say("But you mumbled a bit!")
+		self.yourGamecode[self.yourGamecodeCounter] = wordSaid
+		self.yourGamecodeCounter += 1		 
+		# wait a bit to avoid robot speech triggering WordRecognized event
+		time.sleep(2)
+		try:
+			memory.subscribeToEvent("WordRecognized", self.getName(), "codeRecognized")
+		except Exception, e:
+			print "memory can not subscribe to wordrecognized ", e
+
+
+
+	def gameManagement(self):
+		""" This manages the tickle game.
+
+		"""
+		sayPhrase = "Remember your code " + str(self.gamecode[self.tickleCounter])
+		speechProxy.say(sayPhrase)
+
+		self.tickleCounter += 1
+		if self.tickleCounter >= 3:
+			speechProxy.say("Wow, you are the tickle master. Can you remember the three number code I gave you?")
+			self.startSpeechRecognition()
+			print "Running speech recognition"
+			while self.yourGamecodeCounter <= 3:
+				time.sleep(0.5)
+			print "Your gamecode: ", yourGamecode
+			print "Stop speech recognition"
+			self.stopSpeechRecognition()
+			self.generateGameCode()
+			self.tickleCounter = 0
+			self.yourGamecodeCounter = 0
 				
 
 	def touched(self, key, value, message):
@@ -542,18 +651,15 @@ class MarkovTickleModule(ALModule):
 					# Chose a new area to tickle if target tickly area was tickled.
 					self.pickTickleTarget()
 					self.inviteToTickle()
-
 					# todo: give game code to user.
+					self.gameManagement()
+
 				else:
 					self.tickled(1.25, 5, 0.5, False)
 					self.currentStateTickleAgain = self.markovChoice(self.transitionMatrixTickleAgain[self.currentStateTickleAgain])
 					sayPhrase = "You touched my " + sensorGroupTouched + self.tickleAgainDictionary[self.currentStateTickleAgain]
 					speechProxy.say(sayPhrase)
-					# todo: say Markov encouragement phrase.
-					# todo: say where tickled.
 				
-				# todo: logic to check if time to enter gamecode.
-
 				# Resubscribe to events.
 				self.easySubscribeEvents("touched")
 			finally:
@@ -578,6 +684,7 @@ class MarkovTickleModule(ALModule):
 		except KeyboardInterrupt:
 			print "Interrupted by user, shutting down"
 			self.easyUnsubscribeEvents()
+			self.stopSpeechRecognition()
 			bodyProxy.goToPosture("Crouch", 0.8)
 			robotMotionProxy.rest()
 			# stop any post tasks
@@ -673,6 +780,7 @@ def main():
 	except KeyboardInterrupt:
 		print "Interrupted by user, shutting down"
 		MarkovTickle.easyUnsubscribeEvents()
+		MarkovTickle.stopSpeechRecognition()
 		MarkovTickle.bodyProxy.goToPosture("SitRelax", 0.8)
 		MarkovTickle.robotMotionProxy.rest()
 		# stop any post tasks
