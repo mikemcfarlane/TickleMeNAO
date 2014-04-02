@@ -110,6 +110,30 @@ class ToMarkovChoiceBadInput(unittest.TestCase):
 		result = 100.0
 		self.assertAlmostEqual(testValue, result)
 
+class TickleTestGoodInput(unittest.TestCase):
+	""" NAO should provide a good tickle response when tickled() given good arguments.
+
+	"""
+	def testTickle(self):
+		""" NAO should move, animate LEDs, say something."""
+		pass
+
+class TickleTestBadInput(unittest.TestCase):
+	""" What happens to NAO when tickled() given bad arguments? 
+
+	"""
+	def TestTickle(self):
+		pass
+
+class PickTickleTargetTest(unittest.TestCase):
+	""" Test pickTickleTarget() to ensure all body areas found.
+
+	"""
+	def testPickTickleTarget(self):
+		""" Test pickTickleTarget() """
+		pass
+
+
 if __name__ == "__main__":
 	print "\n"
 	print "Running Markov_tickles unit tests"

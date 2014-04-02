@@ -44,6 +44,7 @@ import sys
 import numpy as np
 from optparse import OptionParser
 import Markov_tickles_motion_data as mtmd
+from multiprocessing import Process, Lock
 
 # todo: investigate custom exceptions when more time
 #import Markov_tickles_exceptions as mte
@@ -100,6 +101,10 @@ class MarkovTickleModule(ALModule):
 		self.currentStateInvite = 0
 		self.currentStateLEDs = 0
 		self.currentStateWalk = 0
+		self.currentTickleTarget = 0
+
+		# Variables for tickle game
+		self.tickleTarget = ""
 		
 		self.wordDictionary = {0 : 'ha',
 								1 : "ha ha",
@@ -113,8 +118,8 @@ class MarkovTickleModule(ALModule):
 
 		self.inviteToTickleDictionary = {0 : "Would you like to tickle me?",
 										1 : "I bet you can't find my tickly spot!",
-										2 : "Go on, tickle me!",
-										3 : "Tickle Me NAO!"
+										2 : "Go on, try to tickle me!",
+										3 : "Tickle Me NAO if you can!"
 										}
 
 		self.RGBColourDictionary = {0 : [255, 0, 0], # red
@@ -130,13 +135,44 @@ class MarkovTickleModule(ALModule):
 									}
 
 		# x, y, theta values for moveTo command.
-		self.walkDictionary = {0 : [0.05, 0.05, 0],
-								1 : [0.0, 0.0, 0.25],
-								2 : [0.0, 0.0, 0.0],
-								3 : [-0.05, -0.05, 0],
-								4 : [0.0, 0.0, -0.25]
+		self.walkDictionary = {0 : [0.05, 0.05, 0],	# forward and sidestep
+								1 : [0.0, 0.0, 0.25],	# turn on spot
+								2 : [0.0, 0.0, 0.0],	# do nothing
+								3 : [-0.05, -0.05, 0],	# back and sidestep
+								4 : [0.0, 0.0, -0.25]	# turn on spot
 								}
 
+		self.tickleTargetDictionary = {"RightBumperPressed" : "right foot",
+										"LeftBumperPressed" : "left foot",
+										"FrontTactilTouched" : "head top",
+										"MiddleTactilTouched" : "head top",
+										"RearTactilTouched" : "head top",
+										"HandRightBackTouched" : "right hand",
+										"HandRightLeftTouched" : "right hand",
+										"HandRightRightTouched" : "right hand",
+										"HandLeftBackTouched" : "left hand",
+										"HandLeftLeftTouched" : "left hand",
+										"HandLeftRightTouched" : "left hand"
+										}
+
+
+		# Lists for large setup items e.g. subscribe, unsubscribe.
+		# A tickle target is picked at random from this list.
+		# todo: when add in mic tickle and OpenCV tummy tickle they will raise an event.
+		self.subscriptionList = ["RightBumperPressed",
+								"LeftBumperPressed",
+								"FrontTactilTouched",
+								"MiddleTactilTouched",
+								"RearTactilTouched",
+								"HandRightBackTouched",
+								"HandRightLeftTouched",
+								"HandRightRightTouched",
+								"HandLeftBackTouched",
+								"HandLeftLeftTouched",
+								"HandLeftRightTouched"
+								]
+
+				
 		# Transition matrices in numpy format
 		self.transitionMatrixAction = np.array([[0.25, 0.25, 0.25, 0.25],
 										[0.25, 0.25, 0.25, 0.25],
@@ -178,20 +214,19 @@ class MarkovTickleModule(ALModule):
 											[0.1, 0.1, 0.6, 0.1, 0.1],
 											[0.1, 0.1, 0.6, 0.1, 0.1]]
 											)
+
+		self.transitionMatrixTickleTarget = np.array([
+													[0.2, 0.2, 0.2, 0.2, 0.2, 0.0, 0.0, 0.0],
+													[0.2, 0.2, 0.2, 0.2, 0.2, 0.0, 0.0, 0.0],
+													[0.2, 0.2, 0.2, 0.2, 0.2, 0.0, 0.0, 0.0],
+													[0.2, 0.2, 0.2, 0.2, 0.2, 0.0, 0.0, 0.0],
+													[0.2, 0.2, 0.2, 0.2, 0.2, 0.0, 0.0, 0.0],
+													[0.2, 0.2, 0.2, 0.2, 0.2, 0.0, 0.0, 0.0],
+													[0.2, 0.2, 0.2, 0.2, 0.2, 0.0, 0.0, 0.0],
+													[0.2, 0.2, 0.2, 0.2, 0.2, 0.0, 0.0, 0.0]
+													])
 		
-		# Lists for large setup items e.g. subscribe, unsubscribe
-		self.subscriptionList = ["RightBumperPressed",
-								"LeftBumperPressed",
-								"FrontTactilTouched",
-								"MiddleTactilTouched",
-								"RearTactilTouched",
-								"HandRightBackTouched",
-								"HandRightLeftTouched",
-								"HandRightRightTouched",
-								"HandLeftBackTouched",
-								"HandLeftLeftTouched",
-								"HandLeftRightTouched"
-								]
+		
 		
 		# Setup proxies
 		try:
@@ -225,8 +260,10 @@ class MarkovTickleModule(ALModule):
 			
 
 		# Subscribe to the sensor events.
-		# Initially passes name of method for callback, but maybe be multiple method names in future.
-		self.easySubscribeEvents("tickled")
+		self.easySubscribeEvents("touched")
+
+		# Pick an initial tickle target.
+		self.pickTickleTarget()
 
 		# First, wake up.
 		robotMotionProxy.wakeUp()
@@ -239,6 +276,20 @@ class MarkovTickleModule(ALModule):
 
 
 		# ---------------- END __init__ ---------------------------
+
+	def pickTickleTarget(self):
+		""" Pick a body area to be the target of tickling.
+
+		"""
+		sizeOfBodyList = len(self.subscriptionList)
+		randomIndex = int(np.random.random() * sizeOfBodyList)
+		tickleTargetDictionaryKey = self.subscriptionList[randomIndex]
+		# Tickle target is set to a value from tickleTargetDictionary rather than event names as:
+		# 1. Need to group some sensors together as they are not always reliable e.g. hands.
+		# 2. Need to group some sensors together for better gameplay e.g. head, no point in having seperate tickle spots.
+		# 3. Also allows a sensible value to used in speech.
+		self.tickleTarget = self.tickleTargetDictionary[tickleTargetDictionaryKey]
+		print "tickleTarget: ", self.tickleTarget
 
 
 	def markovChoice(self, inMatrix):
@@ -279,17 +330,19 @@ class MarkovTickleModule(ALModule):
 		return hexColour
 
 
-	def tickled(self):
+	def tickled(self, laughPitch = 1.5, numWordsPerTickleConstant = 5, LEDGroupDuration = 1.0, motionEnabled = True):
 		""" NAO does this when tickled.
+			Arguments and defaults:
+			laughPitch = 1.5, 
+			numWordsPerTickleConstant = 5, 
+			LEDGroupDuration = 1.0, 
+			motionEnabled = True
 
 		"""
-
-		# Unsubscribe from all events to prevent other sensor events
-		self.easyUnsubscribeEvents()
-
+		
 		# Speech parameters.
 		wordPitch = 1.0
-		laughPitch = 1.5
+		# laughPitch = 1.5
 		normalPitch = 0
 		doubleVoiceLaugh = 1.0
 		doubleVoiceNormal = 0
@@ -297,12 +350,12 @@ class MarkovTickleModule(ALModule):
 		voice2 = "audrey"
 		# Define how many action elements will be actioned each 'tickle' action.
 		# Add 1 so something always happens.
-		numWordsPerTickle = int(np.random.random() * 5) + 1
+		numWordsPerTickle = int(np.random.random() * numWordsPerTickleConstant) + 1
 		wordList1 = []
 
 		# LED parameters
 		LEDGroupName = 'AllLeds'
-		LEDGroupDuration = 1.0
+		# LEDGroupDuration = 1.0
 		numLEDChangesPerTickle = int(np.random.random() * 5) + 5
 		LEDdurationList = [LEDGroupDuration] * numLEDChangesPerTickle
 		RGBList = []
@@ -332,63 +385,71 @@ class MarkovTickleModule(ALModule):
 				except Exception, e:
 					print "LED colour selection error: ", e
 			# Set Markovian actions.
-			self.currentStateActionLeftArm = self.markovChoice(self.transitionMatrixAction[self.currentStateActionLeftArm])
-			self.currentStateActionRightArm = self.markovChoice(self.transitionMatrixAction[self.currentStateActionRightArm])
-			self.currentStateWalk = self.markovChoice(self.transitionMatrixWalk[self.currentStateWalk])
+			if motionEnabled:
+				""" Only does this when the target tickle area is tickled."""
+				self.currentStateActionLeftArm = self.markovChoice(self.transitionMatrixAction[self.currentStateActionLeftArm])
+				self.currentStateActionRightArm = self.markovChoice(self.transitionMatrixAction[self.currentStateActionRightArm])
+				self.currentStateWalk = self.markovChoice(self.transitionMatrixWalk[self.currentStateWalk])
 		except ValueError, e:
 			print "ValueError from markovChoice: ", e
 
 		# Build action lists.
 		# Voice output.
 		tickleSentence = " ".join(wordList1)
-		# Build motion.
-		namesMotion = []
-		# todo: replace time data with parametric values, or see ipnb for other ideas.
-		timesMotion = []
-		keysMotion = []
-		movementList = []
-		movementList = mtmd.leftArmMovementList[self.currentStateActionLeftArm] + mtmd.rightArmMovementList[self.currentStateActionRightArm]
-		for n, t, k in movementList:
-			namesMotion.append(n)
-			timesMotion.append(t)
-			keysMotion.append(k)
-		# Build walk.
-		walk1 = self.walkDictionary[self.currentStateWalk]
-		# Creating a reverse move list to return NAO to start position'ish!
-		walk2 = [i * -1 for i in walk1]
-		print "walk1: ", walk1
-		print "walk2: ", walk2
+		if motionEnabled:
+			""" Only does this when the target tickle area is tickled."""
+			# Build motion.
+			namesMotion = []
+			# todo: replace time data with parametric values, or see ipnb for other ideas.
+			timesMotion = []
+			keysMotion = []
+			movementList = []
+			movementList = mtmd.leftArmMovementList[self.currentStateActionLeftArm] + mtmd.rightArmMovementList[self.currentStateActionRightArm]
+			for n, t, k in movementList:
+				namesMotion.append(n)
+				timesMotion.append(t)
+				keysMotion.append(k)
+			# Build walk.
+			walk1 = self.walkDictionary[self.currentStateWalk]
+			# Creating a reverse move list to return NAO to start position'ish!
+			walk2 = [i * -1 for i in walk1]
+			print "walk1: ", walk1
+			print "walk2: ", walk2
 
 		# Say and do.
 		speechProxy.setVoice(voice1)
 		speechProxy.setParameter("pitchShift", laughPitch)
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
-		try:
-			x = walk1[0]
-			y = walk1[1]
-			theta = walk1[2]
-			robotMotionProxy.moveTo(x, y, theta)
-			robotMotionProxy.waitUntilMoveIsFinished()
-		except Exception, e:
-			print "robotMotionProxy error: ", e
-		try:
-			robotMotionProxy.post.angleInterpolation(namesMotion, keysMotion, timesMotion, True)
-		except Exception, e:
-			print "robotMotionProxy error: ", e
+		if motionEnabled:
+			""" Only does this when the target tickle area is tickled."""
+			try:
+				x = walk1[0]
+				y = walk1[1]
+				theta = walk1[2]
+				robotMotionProxy.moveTo(x, y, theta)
+				robotMotionProxy.waitUntilMoveIsFinished()
+			except Exception, e:
+				print "robotMotionProxy error: ", e
+			try:
+				robotMotionProxy.post.angleInterpolation(namesMotion, keysMotion, timesMotion, True)
+			except Exception, e:
+				print "robotMotionProxy error: ", e
 		try:
 			LEDProxy.post.fadeListRGB(LEDGroupName, RGBList, LEDdurationList)			
 		except Exception, e:
 			print "LEDProxy error: ", e
 		speechProxy.say(tickleSentence)
 		# Return NAO to start position.
-		try:
-			x = walk2[0]
-			y = walk2[1]
-			theta = walk2[2]
-			robotMotionProxy.moveTo(x, y, theta)
-			robotMotionProxy.waitUntilMoveIsFinished()
-		except Exception, e:
-			print "robotMotionProxy error: ", e
+		if motionEnabled:
+			""" Only does this when the target tickle area is tickled."""
+			try:
+				x = walk2[0]
+				y = walk2[1]
+				theta = walk2[2]
+				robotMotionProxy.moveTo(x, y, theta)
+				robotMotionProxy.waitUntilMoveIsFinished()
+			except Exception, e:
+				print "robotMotionProxy error: ", e
 
 		# Tidy up.		
 		speechProxy.setParameter("pitchShift", normalPitch)
@@ -400,9 +461,41 @@ class MarkovTickleModule(ALModule):
 		# Reset all LEDs to default.
 		LEDProxy.reset(LEDGroupName)
 
-		# Resubscribe to events.
-		self.easySubscribeEvents("tickled")
+		
 
+	def touched(self, key, value, message):
+		""" NAO does this when tickled.
+			key = calling event
+			value = value from event
+
+		"""
+		# Unsubscribe from all events to prevent other sensor events
+		self.easyUnsubscribeEvents()
+
+		# Was the target area tickled?
+		sensorGroupTouched = self.tickleTargetDictionary[key]
+		if sensorGroupTouched == self.tickleTarget:
+			self.tickled(1.5, 5, 1.0, True)
+			sayPhrase = "You touched my " + sensorGroupTouched
+			speechProxy.say(sayPhrase)
+			speechProxy.say("You tickle good!")
+			# todo: say Markov success phrase.
+			# todo: say where tickled.
+			# todo: give game code to user.
+		else:
+			self.tickled(1.25, 3, 0.5, False)
+			sayPhrase = "You touched the " + sensorGroupTouched
+			speechProxy.say(sayPhrase)
+			speechProxy.say("That was sort of ticklish. Can you find where I am very tickly?")
+			# todo: say Markov encouragement phrase.
+			# todo: say where tickled.
+
+		# todo: logic to check if time to enter gamecode.
+
+		# Resubscribe to events.
+		self.easySubscribeEvents("touched")
+
+		
 		
 
 	def mainTask(self):
