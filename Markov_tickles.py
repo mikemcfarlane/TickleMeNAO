@@ -44,7 +44,7 @@ import sys
 import numpy as np
 from optparse import OptionParser
 import Markov_tickles_motion_data as mtmd
-from multiprocessing import Process, Lock
+from threading import Lock
 
 # todo: investigate custom exceptions when more time
 #import Markov_tickles_exceptions as mte
@@ -66,7 +66,7 @@ rightArmProxy = None
 robotMotionProxy = None
 myBroker = None
 LEDProxy = None
-
+batteryProxy = None
 
 
 class MarkovTickleModule(ALModule):
@@ -89,6 +89,7 @@ class MarkovTickleModule(ALModule):
 		global rightArmProxy
 		global robotMotionProxy
 		global LEDProxy
+		global batteryProxy
 
 		# Variables for movement
 		self.fractionMaxSpeed = 0.8
@@ -102,9 +103,16 @@ class MarkovTickleModule(ALModule):
 		self.currentStateLEDs = 0
 		self.currentStateWalk = 0
 		self.currentTickleTarget = 0
+		self.currentStateTickleSuccessPre = 0
+		self.currentStateTickleSuccessPost = 0
+		self.currentStateTickleAgain = 0
 
 		# Variables for tickle game
 		self.tickleTarget = ""
+
+		# Mutex
+		# todo: investigate multiprocessing library
+		self.eventLock = Lock()
 		
 		self.wordDictionary = {0 : 'ha',
 								1 : "ha ha",
@@ -121,6 +129,26 @@ class MarkovTickleModule(ALModule):
 										2 : "Go on, try to tickle me!",
 										3 : "Tickle Me NAO if you can!"
 										}
+
+		self.tickleSuccessPreDictionary = {0 : "Wow! My ",
+											1 : "So tickly. My ",
+											2 : "Phew! My ",
+											3 : "My "
+										}
+
+		self.tickleSuccessPostDictionary = {0 : " is really tickly!",
+											1 : " was tickled. You are tickle master!",
+											2 : " is so ticklish!",
+											3 : " , so ticklish! You tickle good!"
+											}
+
+		self.tickleAgainDictionary = {0 : " That was sort of ticklish. Can you find where I am very tickly?",
+										1 : " You are going to have to try harder to tickle me!",
+										2 : " Come on, really tickle me!",
+										3 : " Try tickling somewhere else!"
+										}
+
+																
 
 		self.RGBColourDictionary = {0 : [255, 0, 0], # red
 									1 : [0, 255, 0], # green
@@ -175,6 +203,24 @@ class MarkovTickleModule(ALModule):
 				
 		# Transition matrices in numpy format
 		self.transitionMatrixAction = np.array([[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25]]
+										)
+
+		self.transitionMatrixTickleSuccessPre = np.array([[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25]]
+										)
+
+		self.transitionMatrixTickleSuccessPost = np.array([[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25],
+										[0.25, 0.25, 0.25, 0.25]]
+										)
+
+		self.transitionMatrixTickleAgain = np.array([[0.25, 0.25, 0.25, 0.25],
 										[0.25, 0.25, 0.25, 0.25],
 										[0.25, 0.25, 0.25, 0.25],
 										[0.25, 0.25, 0.25, 0.25]]
@@ -257,8 +303,11 @@ class MarkovTickleModule(ALModule):
 			LEDProxy = ALProxy("ALLeds")
 		except Exception, e:
 			print "Could not create proxy to ALLeds. Error: ", e
-			
-
+		try:
+			batteryProxy = ALProxy("ALBattery")
+		except Exception, e:
+			print "Could not create proxy to ALBattery. Error: ", e
+		
 		# Subscribe to the sensor events.
 		self.easySubscribeEvents("touched")
 
@@ -276,6 +325,10 @@ class MarkovTickleModule(ALModule):
 
 
 		# ---------------- END __init__ ---------------------------
+
+	def batteryChange(self):
+		print "Charging plug status changed."
+		speechProxy.say("Hey, what happened to my power!")
 
 	def pickTickleTarget(self):
 		""" Pick a body area to be the target of tickling.
@@ -460,8 +513,7 @@ class MarkovTickleModule(ALModule):
 		self.inviteTimer = 0
 		# Reset all LEDs to default.
 		LEDProxy.reset(LEDGroupName)
-
-		
+				
 
 	def touched(self, key, value, message):
 		""" NAO does this when tickled.
@@ -469,34 +521,44 @@ class MarkovTickleModule(ALModule):
 			value = value from event
 
 		"""
-		# Unsubscribe from all events to prevent other sensor events
-		self.easyUnsubscribeEvents()
-
-		# Was the target area tickled?
-		sensorGroupTouched = self.tickleTargetDictionary[key]
-		if sensorGroupTouched == self.tickleTarget:
-			self.tickled(1.5, 5, 1.0, True)
-			sayPhrase = "You touched my " + sensorGroupTouched
-			speechProxy.say(sayPhrase)
-			speechProxy.say("You tickle good!")
-			# todo: say Markov success phrase.
-			# todo: say where tickled.
-			# todo: give game code to user.
+		if not self.eventLock.acquire(False):
+			# Failed to lock the resource.
+			pass
 		else:
-			self.tickled(1.25, 3, 0.5, False)
-			sayPhrase = "You touched the " + sensorGroupTouched
-			speechProxy.say(sayPhrase)
-			speechProxy.say("That was sort of ticklish. Can you find where I am very tickly?")
-			# todo: say Markov encouragement phrase.
-			# todo: say where tickled.
+			try:
+				# Unsubscribe from all events to prevent other sensor events
+				self.easyUnsubscribeEvents()
 
-		# todo: logic to check if time to enter gamecode.
+				# Was the target area tickled?
+				sensorGroupTouched = self.tickleTargetDictionary[key]
+				if sensorGroupTouched == self.tickleTarget:
+					self.tickled(1.5, 8, 1.0, True)
+					self.currentStateTickleSuccessPre = self.markovChoice(self.transitionMatrixTickleSuccessPre[self.currentStateTickleSuccessPre])
+					self.currentStateTickleSuccessPost = self.markovChoice(self.transitionMatrixTickleSuccessPost[self.currentStateTickleSuccessPost])
+					prePhrase = self.tickleSuccessPreDictionary[self.currentStateTickleSuccessPost]
+					postPhrase = self.tickleSuccessPostDictionary[self.currentStateTickleSuccessPost]
+					sayPhrase = prePhrase + sensorGroupTouched + postPhrase
+					speechProxy.say(sayPhrase)
+					# Chose a new area to tickle if target tickly area was tickled.
+					self.pickTickleTarget()
+					self.inviteToTickle()
 
-		# Resubscribe to events.
-		self.easySubscribeEvents("touched")
+					# todo: give game code to user.
+				else:
+					self.tickled(1.25, 5, 0.5, False)
+					self.currentStateTickleAgain = self.markovChoice(self.transitionMatrixTickleAgain[self.currentStateTickleAgain])
+					sayPhrase = "You touched my " + sensorGroupTouched + self.tickleAgainDictionary[self.currentStateTickleAgain]
+					speechProxy.say(sayPhrase)
+					# todo: say Markov encouragement phrase.
+					# todo: say where tickled.
+				
+				# todo: logic to check if time to enter gamecode.
 
-		
-		
+				# Resubscribe to events.
+				self.easySubscribeEvents("touched")
+			finally:
+				self.eventLock.release()
+						
 
 	def mainTask(self):
 		""" Temp main task.
@@ -510,7 +572,7 @@ class MarkovTickleModule(ALModule):
 				time.sleep(1)
 				# If time gone by invite someone to tickle!
 				self.inviteTimer += 1
-				if self.inviteTimer == 20:
+				if self.inviteTimer == 30:
 					self.inviteToTickle()
 
 		except KeyboardInterrupt:
@@ -540,6 +602,12 @@ class MarkovTickleModule(ALModule):
 				#print "Subscribed to %s." % eventName
 			except Exception, e:
 				print "Subscribe exception error %s for %s." % (e, eventName)
+		# Other subscriptions.
+		try: 
+			memory.subscribeToEvent("BatteryDisChargingFlagChanged", self.getName(), "batteryChange")
+		except Exception, e:
+			print "Subscribe exception error for %s." % (e) 
+
 
 	def easyUnsubscribeEvents(self):
 		""" Unsubscribes from all events in subscriptionList.
@@ -551,6 +619,12 @@ class MarkovTickleModule(ALModule):
 				#print "Unsubscribed from %s." % eventName
 			except Exception, e:
 				print "Unsubscribe exception error %s for %s." % (e, eventName)
+		# Other unsubscribes.
+		try:
+			memory.unsubscribeToEvent("BatteryDisChargingFlagChanged", self.getName())
+			#print "Unsubscribed from %s." % eventName
+		except Exception, e:
+			print "Unsubscribe exception error for %s." % (e)
 
 
 
