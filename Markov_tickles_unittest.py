@@ -141,6 +141,14 @@ class TestGenerateGameCode(unittest.TestCase):
 		""" Test generateGameCode() """
 		pass
 
+class TestSoundRecognitionSubscriptions(unittest.TestCase):
+	""" There are problems with ASR and WordRecognized getting subscribed/unsubscribed, and getting out of sync.
+
+	"""
+	def testTheFunctions(self):
+		""" Test it! """
+		pass
+
 
 if __name__ == "__main__":
 	print "\n"
