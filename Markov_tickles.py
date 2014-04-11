@@ -681,7 +681,7 @@ class MarkovTickleModule(ALModule):
 				# Was the target area tickled?
 				sensorGroupTouched = self.tickleTargetDictionary[key]
 				if sensorGroupTouched == self.tickleTarget:
-					# self.tickled(1.5, 8, 1.0, True)
+					self.tickled(1.5, 8, 1.0, True)
 					self.currentStateTickleSuccessPre = self.markovChoice(self.transitionMatrixTickleSuccessPre[self.currentStateTickleSuccessPre])
 					self.currentStateTickleSuccessPost = self.markovChoice(self.transitionMatrixTickleSuccessPost[self.currentStateTickleSuccessPost])
 					prePhrase = self.tickleSuccessPreDictionary[self.currentStateTickleSuccessPost]
@@ -695,7 +695,7 @@ class MarkovTickleModule(ALModule):
 					self.inviteToTickle()
 
 				else:
-					# self.tickled(1.25, 5, 0.5, False)
+					self.tickled(1.25, 5, 0.5, False)
 					self.currentStateTickleAgain = self.markovChoice(self.transitionMatrixTickleAgain[self.currentStateTickleAgain])
 					sayPhrase = "You touched my " + sensorGroupTouched + self.tickleAgainDictionary[self.currentStateTickleAgain]
 					speechProxy.say(sayPhrase)
