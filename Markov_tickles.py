@@ -59,15 +59,15 @@ NAO_IP = "mistcalf.local"
 MarkovTickle = None
 memory = None
 speechProxy = None
-animateProxy = None
+animatedSpeechProxy = None
 bodyProxy = None
-leftArmProxy = None
-rightArmProxy = None
 robotMotionProxy = None
 myBroker = None
 LEDProxy = None
 batteryProxy = None
 asrProxy = None
+systemProxy = None
+aupProxy = None
 
 
 class MarkovTickleModule(ALModule):
@@ -84,18 +84,25 @@ class MarkovTickleModule(ALModule):
 		# Globals for proxies
 		global memory
 		global speechProxy
-		global animateProxy
+		global animatedSpeechProxy
 		global bodyProxy
-		global leftArmProxy
-		global rightArmProxy
 		global robotMotionProxy
 		global LEDProxy
 		global batteryProxy
 		global asrProxy
+		global systemProxy
+		global aupProxy
 
 		# Variables for movement
 		self.fractionMaxSpeed = 0.8
-		self.defaultPose = "Stand"
+		self.defaultPose = "StandInit"
+
+		# Variables for animated speech.
+		self.bodyLanguageModeConfig = {"bodyLanguageMode":"contextual"}
+
+		# Variables for playing sound files.
+		self.volume = 0.75
+		self.pan = 0.0
 
 		# Variables for the Markov Chain Transition Matrices
 		self.currentStateWord = 0
@@ -108,6 +115,9 @@ class MarkovTickleModule(ALModule):
 		self.currentStateTickleSuccessPre = 0
 		self.currentStateTickleSuccessPost = 0
 		self.currentStateTickleAgain = 0
+		self.currentStateGameWinPraise = 0
+		self.currentStateGameWinAnimation = 0
+		self.currentStateGameLost = 0
 		self.tickleCounter = 0
 		self.gamecode = [0, 0, 0]
 		self.yourGamecode = [0, 0, 0]
@@ -118,8 +128,7 @@ class MarkovTickleModule(ALModule):
 		# Variables for tickle game
 		self.tickleTarget = ""
 
-		# Mutex
-		# todo: investigate multiprocessing library
+		# Thread locks.
 		self.eventLock = Lock()
 		
 		self.wordDictionary = {0 : 'ha',
@@ -156,7 +165,24 @@ class MarkovTickleModule(ALModule):
 										3 : " Try tickling somewhere else!"
 										}
 
-																
+		self.gameWinPraiseDictionary = { 0 : "You are the tickle and memory master!",
+										1 : "Yay, you tickle well and remember well.",
+										2 : "You are a tickle fiend with a great memory."
+										}
+
+		self.gameWinAnimationDictionary = { 0 : "You have achieved tickle greatness", # Use with mystic.
+											1 : "Tickle on great one", # Use with heavy metal.
+											2 : "Listen to the crowd roar you are so great!" # Use with applause.
+											}
+		self.gameWinAnimationSoundsDictionary = { 	0 : "/home/nao/audio/mystic1.wav",
+													1 : "/home/nao/audio/heavyMetal1.wav",
+													2 : "/home/nao/audio/applause1.wav"
+												}
+
+		self.gameLostDictionary = { 0 : "That was the wrong code, or my microphones need cleaned out!",
+									1 : "Sorry, incorrect code, or you need to speak more clearly.",
+									2 : "Hmmm, that doesn't seem right."
+									}
 
 		self.RGBColourDictionary = {0 : [255, 0, 0], # red
 									1 : [0, 255, 0], # green
@@ -171,11 +197,11 @@ class MarkovTickleModule(ALModule):
 									}
 
 		# x, y, theta values for moveTo command.
-		self.walkDictionary = {0 : [0.05, 0.05, 0],	# forward and sidestep
-								1 : [0.0, 0.0, 0.25],	# turn on spot
-								2 : [0.0, 0.0, 0.0],	# do nothing
-								3 : [-0.05, -0.05, 0],	# back and sidestep
-								4 : [0.0, 0.0, -0.25]	# turn on spot
+		self.walkDictionary = {0 : [0.05, 0.05, 0], # forward and sidestep
+								1 : [0.0, 0.0, 0.25],   # turn on spot
+								2 : [0.0, 0.0, 0.0],    # do nothing
+								3 : [-0.05, -0.05, 0],  # back and sidestep
+								4 : [0.0, 0.0, -0.25]   # turn on spot
 								}
 
 		self.tickleTargetDictionary = {"RightBumperPressed" : "right foot",
@@ -210,17 +236,32 @@ class MarkovTickleModule(ALModule):
 
 				
 		# Transition matrices in numpy format
+		self.transitionMatrixGameWinPraise = np.array([[0.33, 0.34, 0.33],
+												[0.33, 0.34, 0.33],
+												[0.33, 0.34, 0.33]]
+												)
+
+		self.transitionMatrixGameWinAnimation = np.array([[0.33, 0.34, 0.33],
+												[0.33, 0.34, 0.33],
+												[0.33, 0.34, 0.33]]
+												)
+
+		self.transitionMatrixGameLost = np.array([[0.33, 0.34, 0.33],
+												[0.33, 0.34, 0.33],
+												[0.33, 0.34, 0.33]]
+												)
+
 		self.transitionMatrixAction = np.array([[0.25, 0.25, 0.25, 0.25],
-										[0.25, 0.25, 0.25, 0.25],
-										[0.25, 0.25, 0.25, 0.25],
-										[0.25, 0.25, 0.25, 0.25]]
-										)
+												[0.25, 0.25, 0.25, 0.25],
+												[0.25, 0.25, 0.25, 0.25],
+												[0.25, 0.25, 0.25, 0.25]]
+												)
 
 		self.transitionMatrixTickleSuccessPre = np.array([[0.25, 0.25, 0.25, 0.25],
-										[0.25, 0.25, 0.25, 0.25],
-										[0.25, 0.25, 0.25, 0.25],
-										[0.25, 0.25, 0.25, 0.25]]
-										)
+															[0.25, 0.25, 0.25, 0.25],
+															[0.25, 0.25, 0.25, 0.25],
+															[0.25, 0.25, 0.25, 0.25]]
+														)
 
 		self.transitionMatrixTickleSuccessPost = np.array([[0.25, 0.25, 0.25, 0.25],
 										[0.25, 0.25, 0.25, 0.25],
@@ -229,10 +270,10 @@ class MarkovTickleModule(ALModule):
 										)
 
 		self.transitionMatrixTickleAgain = np.array([[0.25, 0.25, 0.25, 0.25],
-										[0.25, 0.25, 0.25, 0.25],
-										[0.25, 0.25, 0.25, 0.25],
-										[0.25, 0.25, 0.25, 0.25]]
-										)
+													[0.25, 0.25, 0.25, 0.25],
+													[0.25, 0.25, 0.25, 0.25],
+													[0.25, 0.25, 0.25, 0.25]]
+													)
 
 		self.transitionMatrixInviteToTickle = np.array([[0.25, 0.25, 0.25, 0.25],
 														[0.25, 0.25, 0.25, 0.25],
@@ -286,19 +327,19 @@ class MarkovTickleModule(ALModule):
 		try:
 			bodyProxy = ALProxy("ALRobotPosture")
 		except Exception, e:
-			print "Could not create proxy to ALRobotPosture. Error: ", e			
+			print "Could not create proxy to ALRobotPosture. Error: ", e            
 		try:
 			robotMotionProxy = ALProxy("ALMotion")
 		except Exception, e:
-			print "Could not create proxy to ALMotion. Error: ", e			
+			print "Could not create proxy to ALMotion. Error: ", e          
 		try:
 			speechProxy = ALProxy("ALTextToSpeech")
 		except Exception, e:
-			print "Could not create proxy to ALTextToSpeech. Error: ", e			
+			print "Could not create proxy to ALTextToSpeech. Error: ", e            
 		try:
-			animateProxy = ALProxy("ALAnimatedSpeech")
+			animatedSpeechProxy = ALProxy("ALAnimatedSpeech")
 		except Exception, e:
-			print "Could not create proxy to ALAnimatedSpeech. Error: ", e			
+			print "Could not create proxy to ALAnimatedSpeech. Error: ", e          
 		try:
 			memory = ALProxy("ALMemory")
 		except Exception, e:
@@ -315,6 +356,14 @@ class MarkovTickleModule(ALModule):
 			asrProxy = ALProxy("ALSpeechRecognition")
 		except Exception, e:
 			print "Could not create proxy to ALSpeechRecognition. Error: ", e
+		try:
+			systemProxy = ALProxy("ALSystem")
+		except Exception, e:
+			print "Could not creat proxy to ALSystem. Error: ", e
+		try:
+			aupProxy = ALProxy("ALAudioPlayer")
+		except Exception, e:
+			print "Could not creat proxy to ALAudioPlayer. Error: ", e
 
 		# Subscribe to the sensor events.
 		self.easySubscribeEvents("touched")
@@ -334,7 +383,6 @@ class MarkovTickleModule(ALModule):
 		# Invite to play the game:-)
 		self.inviteToTickle()
 
-
 		# ---------------- END __init__ ---------------------------
 
 	def generateGameCode(self):
@@ -346,7 +394,7 @@ class MarkovTickleModule(ALModule):
 			# Generate random number, change from float to int, then to str as needs to match WordRecognised event.
 			randNum = str(int(np.random.random() * 9))
 			self.gamecode[i] = randNum
-		print "gamecode: ", self.gamecode
+		print "Your new gamecode: ", self.gamecode
 
 	def batteryChange(self):
 		print "Charging plug status changed."
@@ -392,7 +440,7 @@ class MarkovTickleModule(ALModule):
 		randomInviteToTicklePhrase = self.inviteToTickleDictionary[self.currentStateInvite]
 		speechProxy.say(randomInviteToTicklePhrase)
 		# Reset invite timer.
-		self.inviteTimer = 0	
+		self.inviteTimer = 0    
 
 	def convertRGBToHex(self, list):
 		""" Converts an input list of RGB values to hex, return the hex value.
@@ -450,7 +498,7 @@ class MarkovTickleModule(ALModule):
 					wordList1.append(self.wordDictionary[self.currentStateWord])
 				except Exception, e:
 					print "Word dictionary exception: ", e
-			# LED colour changes.		
+			# LED colour changes.       
 			for i in range(numLEDChangesPerTickle):
 				self.currentStateLEDs = self.markovChoice(self.transitionMatrixLEDs[self.currentStateLEDs])
 				colour = self.RGBColourDictionary[self.currentStateLEDs]
@@ -510,7 +558,7 @@ class MarkovTickleModule(ALModule):
 			except Exception, e:
 				print "robotMotionProxy error: ", e
 		try:
-			LEDProxy.post.fadeListRGB(LEDGroupName, RGBList, LEDdurationList)			
+			LEDProxy.post.fadeListRGB(LEDGroupName, RGBList, LEDdurationList)           
 		except Exception, e:
 			print "LEDProxy error: ", e
 		speechProxy.say(tickleSentence)
@@ -526,7 +574,7 @@ class MarkovTickleModule(ALModule):
 			except Exception, e:
 				print "robotMotionProxy error: ", e
 
-		# Tidy up.		
+		# Tidy up.      
 		speechProxy.setParameter("pitchShift", normalPitch)
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
 		# Return to default pose
@@ -631,11 +679,76 @@ class MarkovTickleModule(ALModule):
 			speechProxy.say("But you mumbled a bit!")
 		self.yourGamecode[self.yourGamecodeCounter] = wordSaid
 		self.yourGamecodeCounter += 1
-		print "yourGamecodeCounter: ", self.yourGamecodeCounter	 
+		print "yourGamecodeCounter: ", self.yourGamecodeCounter  
 		# wait a bit to avoid robot speech triggering WordRecognized event
 		time.sleep(2)
-		self.subscribeToWord()
+		# Check if ASR still on ie not been turned off by gameManagement()
+		if self.isASROn:
+			self.subscribeToWord()
+		print "codeRecognized finished!"
 
+	def gameWinPraise(self):
+		""" NAO praises the gameplayer when they get the code correct.
+
+		"""
+		try:
+			self.currentStateGameWinPraise = self.markovChoice(self.transitionMatrixGameWinPraise[self.currentStateGameWinPraise])
+		except ValueError, e:
+			print "ValueError from markovChoice: ", e
+		
+		sayPhrase = self.gameWinPraiseDictionary[self.currentStateGameWinPraise]
+
+		id = animatedSpeechProxy.post.say(sayPhrase, self.bodyLanguageModeConfig)
+		animatedSpeechProxy.wait(id, 0)
+
+
+	def gameWinAnimation(self):
+		""" NAO performs an animation and a speech when the gameplayer gets the code correct.
+
+		"""
+		try:
+			self.currentStateGameWinAnimation = self.markovChoice(self.transitionMatrixGameWinAnimation[self.currentStateGameWinAnimation])
+		except ValueError, e:
+			print "ValueError from markovChoice: ", e
+
+		soundFile = self.gameWinAnimationSoundsDictionary[self.currentStateGameWinAnimation]
+		sayPhrase = self.gameWinAnimationDictionary[self.currentStateGameWinAnimation]
+
+		# Build motion.
+		namesMotion = []
+		# todo: replace time data with parametric values, or see ipnb for other ideas.
+		timesMotion = []
+		keysMotion = []
+		movementList = []
+		movementList = mtmd.successList[self.currentStateGameWinAnimation]
+		for n, t, k in movementList:
+			namesMotion.append(n)
+			timesMotion.append(t)
+			keysMotion.append(k)
+	
+	
+		id2 = robotMotionProxy.post.angleInterpolationBezier(namesMotion, timesMotion, keysMotion)
+		# robotMotionProxy.wait(id2, 0)
+
+		id1 = aupProxy.playFile(soundFile, self.volume, self.pan)
+		aupProxy.wait(id2, 0)
+
+		id3 = animatedSpeechProxy.post.say(sayPhrase, self.bodyLanguageModeConfig)
+		animatedSpeechProxy.wait(id3, 0)
+
+		
+	def gameLost(self):
+		""" NAO does a speech if player gets the code wrong.
+
+		"""
+		try:
+			self.currentStateGameLost = self.markovChoice(self.transitionMatrixGameLost[self.currentStateGameLost])
+		except ValueError, e:
+			print "ValueError from markovChoice: ", e
+
+		sayPhrase = self.gameLostDictionary[self.currentStateGameLost]
+
+		animatedSpeechProxy.say(sayPhrase, self.bodyLanguageModeConfig)
 
 
 	def gameManagement(self):
@@ -658,7 +771,10 @@ class MarkovTickleModule(ALModule):
 			print "Your gamecode: ", self.yourGamecode
 			if self.gamecode == self.yourGamecode:
 				# You are a winner!
-				speechProxy.say("Fuck me, you are a tickle master and a memory genius!")			
+				self.gameWinPraise()
+				self.gameWinAnimation()
+			else:
+				self.gameLost()         
 			self.generateGameCode()
 			self.tickleCounter = 0
 			self.yourGamecodeCounter = 0
@@ -715,6 +831,10 @@ class MarkovTickleModule(ALModule):
 		try:
 			while True:
 				print ("Alive!"), self.inviteTimer
+				# freeMemory = systemProxy.freeMemory()
+				# totalMemory = systemProxy.totalMemory()
+				# print "-------
+				# print "Free mem (kb): {}. Total mem (kb): {}.".format(freeMemory, totalMemory)
 				time.sleep(1)
 				# If time gone by invite someone to tickle!
 				self.inviteTimer += 1
