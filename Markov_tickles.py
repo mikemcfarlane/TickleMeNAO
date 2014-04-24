@@ -123,6 +123,8 @@ class MarkovTickleModule(ALModule):
 		self.yourGamecode = [0, 0, 0]
 		self.yourGamecodeCounter = 0
 		self.isASROn = False
+		self.bIsRunning = False
+		self.ids = []
 		self.isWordRecognisedSubscribed = False 
 
 		# Variables for tickle game
@@ -436,6 +438,9 @@ class MarkovTickleModule(ALModule):
 		""" Say a random phrases to invite tickling. 
 
 		"""
+		while self.isASROn or self.bIsRunning:
+			time.sleep(1)
+
 		self.currentStateInvite = self.markovChoice(self.transitionMatrixInviteToTickle[self.currentStateInvite])
 		randomInviteToTicklePhrase = self.inviteToTickleDictionary[self.currentStateInvite]
 		animatedSpeechProxy.say(randomInviteToTicklePhrase, self.bodyLanguageModeConfig)
@@ -626,7 +631,6 @@ class MarkovTickleModule(ALModule):
 			except Exception, e:
 				print "memory can not subscribe to wordrecognized ", e
 			self.isWordRecognisedSubscribed = True
-			print "Subscribed to WordRecognized"
 		else:
 			pass
 
@@ -640,7 +644,6 @@ class MarkovTickleModule(ALModule):
 			except Exception, e:
 				print "Exception stopping speech recognition, error: ", e
 			self.isASROn = False
-			print "ASR off"
 		else:
 			pass
 		# Lastly unsubscribe from WordRecognized.
@@ -657,7 +660,6 @@ class MarkovTickleModule(ALModule):
 			except Exception, e:
 				print "Could not unsubscribe from WordRecognized, error: ", e
 			self.isWordRecognisedSubscribed = False
-			print "Unsubscribed from WordRecognized"
 		else:
 			pass
 
@@ -666,29 +668,40 @@ class MarkovTickleModule(ALModule):
 		""" NAO does this when he recognizes the code number.
 
 		"""
-		
-		self.unSubscribeToWord()
-		# get WordRecognized
-		youSaid = memory.getData("WordRecognized")
-		# tell the human some stuff
-		wordSaid = youSaid[0]
-		wordSaidProbability = youSaid[1]
-		tellMeWordSaid = "You said " + wordSaid
-		animatedSpeechProxy.say(tellMeWordSaid, self.bodyLanguageModeConfig)
-		if wordSaidProbability <= 0.4:
-			animatedSpeechProxy.say("But you mumbled a bit!", self.bodyLanguageModeConfig)
-		self.yourGamecode[self.yourGamecodeCounter] = wordSaid
-		self.yourGamecodeCounter += 1
-		print "yourGamecodeCounter: ", self.yourGamecodeCounter  
-		# wait a bit to avoid robot speech triggering WordRecognized event
-		time.sleep(2)
-		# Check if ASR still on ie not been turned off by gameManagement()
-		if self.isASROn:
-			self.subscribeToWord()
-		print "codeRecognized finished!"
+		self.bIsRunning = True
+		id = self.getName()
+		self.ids.append(id)
 
-	def gameWinPraise(self):
-		""" NAO praises the gameplayer when they get the code correct.
+		try:
+			self.unSubscribeToWord()
+			# get WordRecognized
+			youSaid = memory.getData("WordRecognized")
+			# tell the human some stuff
+			wordSaid = youSaid[0]
+			wordSaidProbability = youSaid[1]
+			tellMeWordSaid = "You said " + wordSaid
+			animatedSpeechProxy.say(tellMeWordSaid, self.bodyLanguageModeConfig)
+			if wordSaidProbability <= 0.4:
+				animatedSpeechProxy.say("But you mumbled a bit!", self.bodyLanguageModeConfig)
+			self.yourGamecode[self.yourGamecodeCounter] = wordSaid
+			self.yourGamecodeCounter += 1
+			print "yourGamecodeCounter: ", self.yourGamecodeCounter  
+			# wait a bit to avoid robot speech triggering WordRecognized event
+			time.sleep(2)
+			# Check if ASR still on ie not been turned off by gameManagement()
+			if self.isASROn:
+				self.subscribeToWord()
+
+		finally:
+			try:
+				self.ids.remove(id)
+			except:
+				pass
+			if self.ids == []:
+				self.bIsRunning = False
+
+	def gameWinAnimation(self):
+		""" NAO performs an animation and a speech when the gameplayer gets the code correct.
 
 		"""
 		try:
@@ -696,23 +709,15 @@ class MarkovTickleModule(ALModule):
 		except ValueError, e:
 			print "ValueError from markovChoice: ", e
 		
-		sayPhrase = self.gameWinPraiseDictionary[self.currentStateGameWinPraise]
+		sayPhrase1 = self.gameWinPraiseDictionary[self.currentStateGameWinPraise]
 
-		id = animatedSpeechProxy.post.say(sayPhrase, self.bodyLanguageModeConfig)
-		animatedSpeechProxy.wait(id, 0)
-
-
-	def gameWinAnimation(self):
-		""" NAO performs an animation and a speech when the gameplayer gets the code correct.
-
-		"""
 		try:
 			self.currentStateGameWinAnimation = self.markovChoice(self.transitionMatrixGameWinAnimation[self.currentStateGameWinAnimation])
 		except ValueError, e:
 			print "ValueError from markovChoice: ", e
 
 		soundFile = self.gameWinAnimationSoundsDictionary[self.currentStateGameWinAnimation]
-		sayPhrase = self.gameWinAnimationDictionary[self.currentStateGameWinAnimation]
+		sayPhrase2 = self.gameWinAnimationDictionary[self.currentStateGameWinAnimation]
 
 		# Build motion.
 		namesMotion = []
@@ -725,16 +730,33 @@ class MarkovTickleModule(ALModule):
 			namesMotion.append(n)
 			timesMotion.append(t)
 			keysMotion.append(k)
-	
-	
-		id2 = robotMotionProxy.post.angleInterpolationBezier(namesMotion, timesMotion, keysMotion)
-		# robotMotionProxy.wait(id2, 0)
+		
+		self.bIsRunning = True
+		try:
+			id = animatedSpeechProxy.post.say(sayPhrase1, self.bodyLanguageModeConfig)
+			self.ids.append(id)
+			animatedSpeechProxy.wait(id, 0)
 
-		id1 = aupProxy.playFile(soundFile, self.volume, self.pan)
-		aupProxy.wait(id2, 0)
+			id2 = robotMotionProxy.post.angleInterpolationBezier(namesMotion, timesMotion, keysMotion)
+			self.ids.append(id2)
 
-		id3 = animatedSpeechProxy.post.say(sayPhrase, self.bodyLanguageModeConfig)
-		animatedSpeechProxy.wait(id3, 0)
+			id1 = aupProxy.post.playFile(soundFile, self.volume, self.pan)
+			self.ids.append(id1)
+			aupProxy.wait(id2, 0)
+
+			id3 = animatedSpeechProxy.post.say(sayPhrase2, self.bodyLanguageModeConfig)
+			self.ids.append(id3)
+			animatedSpeechProxy.wait(id3, 0)
+		finally:
+			try:
+				self.ids.remove(id)
+				self.ids.remove(id1)
+				self.ids.remove(id2)
+				self.ids.remove(id3)
+			except:
+				pass
+			if self.ids == []:
+				self.bIsRunning = False
 
 		
 	def gameLost(self):
@@ -765,13 +787,11 @@ class MarkovTickleModule(ALModule):
 			print "Running speech recognition"
 			while self.yourGamecodeCounter <= 2:
 				time.sleep(0.5)
-				print "Waiting for code...., counter currently: ", self.yourGamecodeCounter
 			print "Stop speech recognition"
 			self.stopSpeechRecognition()
 			print "Your gamecode: ", self.yourGamecode
 			if self.gamecode == self.yourGamecode:
 				# You are a winner!
-				self.gameWinPraise()
 				self.gameWinAnimation()
 			else:
 				self.gameLost()         
@@ -830,7 +850,7 @@ class MarkovTickleModule(ALModule):
 
 		try:
 			while True:
-				print ("Alive!"), self.inviteTimer
+				print "Alive! {} asr: {} bIsRunning: {} ids[]: {}".format(self.inviteTimer, self.isASROn, self.bIsRunning, self.ids)
 				# freeMemory = systemProxy.freeMemory()
 				# totalMemory = systemProxy.totalMemory()
 				# print "-------
@@ -839,9 +859,6 @@ class MarkovTickleModule(ALModule):
 				# If time gone by invite someone to tickle!
 				self.inviteTimer += 1
 				if self.inviteTimer == 20:
-					while self.isASROn:
-						# Wait for speech recognition to go off.
-						time.sleep(1)
 					self.inviteToTickle()
 
 		except KeyboardInterrupt:
