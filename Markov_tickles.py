@@ -398,7 +398,7 @@ class MarkovTickleModule(ALModule):
 
 	def batteryChange(self):
 		print "Charging plug status changed."
-		speechProxy.say("Hey, what happened to my power!")
+		animatedSpeechProxy.say("Hey, what happened to my power!", self.bodyLanguageModeConfig)
 
 	def pickTickleTarget(self):
 		""" Pick a body area to be the target of tickling.
@@ -438,7 +438,7 @@ class MarkovTickleModule(ALModule):
 		"""
 		self.currentStateInvite = self.markovChoice(self.transitionMatrixInviteToTickle[self.currentStateInvite])
 		randomInviteToTicklePhrase = self.inviteToTickleDictionary[self.currentStateInvite]
-		speechProxy.say(randomInviteToTicklePhrase)
+		animatedSpeechProxy.say(randomInviteToTicklePhrase, self.bodyLanguageModeConfig)
 		# Reset invite timer.
 		self.inviteTimer = 0    
 
@@ -561,7 +561,7 @@ class MarkovTickleModule(ALModule):
 			LEDProxy.post.fadeListRGB(LEDGroupName, RGBList, LEDdurationList)           
 		except Exception, e:
 			print "LEDProxy error: ", e
-		speechProxy.say(tickleSentence)
+		animatedSpeechProxy.say(tickleSentence, self.bodyLanguageModeConfig)
 		# Return NAO to start position.
 		if motionEnabled:
 			""" Only does this when the target tickle area is tickled."""
@@ -674,9 +674,9 @@ class MarkovTickleModule(ALModule):
 		wordSaid = youSaid[0]
 		wordSaidProbability = youSaid[1]
 		tellMeWordSaid = "You said " + wordSaid
-		speechProxy.say(tellMeWordSaid)
+		animatedSpeechProxy.say(tellMeWordSaid, self.bodyLanguageModeConfig)
 		if wordSaidProbability <= 0.4:
-			speechProxy.say("But you mumbled a bit!")
+			animatedSpeechProxy.say("But you mumbled a bit!", self.bodyLanguageModeConfig)
 		self.yourGamecode[self.yourGamecodeCounter] = wordSaid
 		self.yourGamecodeCounter += 1
 		print "yourGamecodeCounter: ", self.yourGamecodeCounter  
@@ -756,11 +756,11 @@ class MarkovTickleModule(ALModule):
 
 		"""
 		sayPhrase = "Remember your code, " + str(self.gamecode[self.tickleCounter])
-		speechProxy.say(sayPhrase)
+		animatedSpeechProxy.say(sayPhrase, self.bodyLanguageModeConfig)
 
 		self.tickleCounter += 1
 		if self.tickleCounter >= 3:
-			speechProxy.say("Wow, you are the tickle master. Can you remember the three number code I gave you?")
+			animatedSpeechProxy.say("Wow, you are the tickle master. Can you remember the three number code I gave you?", self.bodyLanguageModeConfig)
 			self.startSpeechRecognition()
 			print "Running speech recognition"
 			while self.yourGamecodeCounter <= 2:
@@ -803,7 +803,7 @@ class MarkovTickleModule(ALModule):
 					prePhrase = self.tickleSuccessPreDictionary[self.currentStateTickleSuccessPost]
 					postPhrase = self.tickleSuccessPostDictionary[self.currentStateTickleSuccessPost]
 					sayPhrase = prePhrase + sensorGroupTouched + postPhrase
-					speechProxy.say(sayPhrase)
+					animatedSpeechProxy.say(sayPhrase, self.bodyLanguageModeConfig)
 					# Chose a new area to tickle if target tickly area was tickled.
 					self.pickTickleTarget()
 					# Check game.
@@ -814,7 +814,7 @@ class MarkovTickleModule(ALModule):
 					self.tickled(1.25, 5, 0.5, False)
 					self.currentStateTickleAgain = self.markovChoice(self.transitionMatrixTickleAgain[self.currentStateTickleAgain])
 					sayPhrase = "You touched my " + sensorGroupTouched + self.tickleAgainDictionary[self.currentStateTickleAgain]
-					speechProxy.say(sayPhrase)
+					animatedSpeechProxy.say(sayPhrase, self.bodyLanguageModeConfig)
 				
 				# Resubscribe to events.
 				self.easySubscribeEvents("touched")
@@ -838,7 +838,10 @@ class MarkovTickleModule(ALModule):
 				time.sleep(1)
 				# If time gone by invite someone to tickle!
 				self.inviteTimer += 1
-				if self.inviteTimer == 30:
+				if self.inviteTimer == 20:
+					while self.isASROn:
+						# Wait for speech recognition to go off.
+						time.sleep(1)
 					self.inviteToTickle()
 
 		except KeyboardInterrupt:
@@ -870,10 +873,11 @@ class MarkovTickleModule(ALModule):
 			except Exception, e:
 				print "Subscribe exception error %s for %s." % (e, eventName)
 		# Other subscriptions.
-		try: 
-			memory.subscribeToEvent("BatteryDisChargingFlagChanged", self.getName(), "batteryChange")
-		except Exception, e:
-			print "Subscribe exception error for %s." % (e) 
+		# Check battery interesting idea, but annoying.
+		# try: 
+		# 	memory.subscribeToEvent("BatteryDisChargingFlagChanged", self.getName(), "batteryChange")
+		# except Exception, e:
+		# 	print "Subscribe exception error for %s." % (e) 
 
 
 	def easyUnsubscribeEvents(self):
@@ -887,11 +891,11 @@ class MarkovTickleModule(ALModule):
 			except Exception, e:
 				print "Unsubscribe exception error %s for %s." % (e, eventName)
 		# Other unsubscribes.
-		try:
-			memory.unsubscribeToEvent("BatteryDisChargingFlagChanged", self.getName())
-			#print "Unsubscribed from %s." % eventName
-		except Exception, e:
-			print "Unsubscribe exception error for %s." % (e)
+		# try:
+		# 	memory.unsubscribeToEvent("BatteryDisChargingFlagChanged", self.getName())
+		# 	#print "Unsubscribed from %s." % eventName
+		# except Exception, e:
+		# 	print "Unsubscribe exception error for %s." % (e)
 
 
 
