@@ -438,14 +438,12 @@ class MarkovTickleModule(ALModule):
 		""" Say a random phrases to invite tickling. 
 
 		"""
-		while self.isASROn or self.bIsRunning:
-			time.sleep(1)
-
-		self.currentStateInvite = self.markovChoice(self.transitionMatrixInviteToTickle[self.currentStateInvite])
-		randomInviteToTicklePhrase = self.inviteToTickleDictionary[self.currentStateInvite]
-		animatedSpeechProxy.say(randomInviteToTicklePhrase, self.bodyLanguageModeConfig)
-		# Reset invite timer.
-		self.inviteTimer = 0    
+		if not self.isASROn and not self.bIsRunning:
+			self.currentStateInvite = self.markovChoice(self.transitionMatrixInviteToTickle[self.currentStateInvite])
+			randomInviteToTicklePhrase = self.inviteToTickleDictionary[self.currentStateInvite]
+			animatedSpeechProxy.say(randomInviteToTicklePhrase, self.bodyLanguageModeConfig)
+			# Reset invite timer.
+			self.inviteTimer = 0    
 
 	def convertRGBToHex(self, list):
 		""" Converts an input list of RGB values to hex, return the hex value.
@@ -737,12 +735,12 @@ class MarkovTickleModule(ALModule):
 			self.ids.append(id)
 			animatedSpeechProxy.wait(id, 0)
 
-			id2 = robotMotionProxy.post.angleInterpolationBezier(namesMotion, timesMotion, keysMotion)
-			self.ids.append(id2)
-
 			id1 = aupProxy.post.playFile(soundFile, self.volume, self.pan)
 			self.ids.append(id1)
-			aupProxy.wait(id2, 0)
+
+			id2 = robotMotionProxy.post.angleInterpolationBezier(namesMotion, timesMotion, keysMotion)
+			self.ids.append(id2)			
+			robotMotionProxy.wait(id2, 0)
 
 			id3 = animatedSpeechProxy.post.say(sayPhrase2, self.bodyLanguageModeConfig)
 			self.ids.append(id3)
@@ -757,7 +755,6 @@ class MarkovTickleModule(ALModule):
 				pass
 			if self.ids == []:
 				self.bIsRunning = False
-
 		
 	def gameLost(self):
 		""" NAO does a speech if player gets the code wrong.
@@ -781,13 +778,11 @@ class MarkovTickleModule(ALModule):
 		animatedSpeechProxy.say(sayPhrase, self.bodyLanguageModeConfig)
 
 		self.tickleCounter += 1
-		if self.tickleCounter >= 3:
+		if self.tickleCounter >= 1:
 			animatedSpeechProxy.say("Wow, you are the tickle master. Can you remember the three number code I gave you?", self.bodyLanguageModeConfig)
 			self.startSpeechRecognition()
-			print "Running speech recognition"
 			while self.yourGamecodeCounter <= 2:
 				time.sleep(0.5)
-			print "Stop speech recognition"
 			self.stopSpeechRecognition()
 			print "Your gamecode: ", self.yourGamecode
 			if self.gamecode == self.yourGamecode:
@@ -798,6 +793,7 @@ class MarkovTickleModule(ALModule):
 			self.generateGameCode()
 			self.tickleCounter = 0
 			self.yourGamecodeCounter = 0
+			self.inviteToTickle()
 				
 
 	def touched(self, key, value, message):
@@ -808,8 +804,10 @@ class MarkovTickleModule(ALModule):
 		"""
 		if not self.eventLock.acquire(False):
 			# Failed to lock the resource.
+			print "Failed to lock"
 			pass
 		else:
+			print "Locked: ", self.eventLock.locked()
 			try:
 				# Unsubscribe from all events to prevent other sensor events
 				self.easyUnsubscribeEvents()
@@ -828,7 +826,7 @@ class MarkovTickleModule(ALModule):
 					self.pickTickleTarget()
 					# Check game.
 					self.gameManagement()
-					self.inviteToTickle()
+					
 
 				else:
 					self.tickled(1.25, 5, 0.5, False)
@@ -850,7 +848,7 @@ class MarkovTickleModule(ALModule):
 
 		try:
 			while True:
-				print "Alive! {} asr: {} bIsRunning: {} ids[]: {}".format(self.inviteTimer, self.isASROn, self.bIsRunning, self.ids)
+				print "Alive! {}".format(self.inviteTimer)
 				# freeMemory = systemProxy.freeMemory()
 				# totalMemory = systemProxy.totalMemory()
 				# print "-------
@@ -860,6 +858,7 @@ class MarkovTickleModule(ALModule):
 				self.inviteTimer += 1
 				if self.inviteTimer == 20:
 					self.inviteToTickle()
+
 
 		except KeyboardInterrupt:
 			print "Interrupted by user, shutting down"
