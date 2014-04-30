@@ -94,7 +94,7 @@ class MarkovTickleModule(ALModule):
 		global aupProxy
 
 		# Variables for movement
-		self.fractionMaxSpeed = 0.8
+		self.fractionMaxSpeed = 0.6
 		self.defaultPose = "StandInit"
 
 		# Variables for animated speech.
@@ -130,8 +130,9 @@ class MarkovTickleModule(ALModule):
 		# Variables for tickle game
 		self.tickleTarget = ""
 
-		# Thread locks.
+		# Thread locks/mutexes.
 		self.eventLock = Lock()
+		self.iAmBeingTickled = False
 		
 		self.wordDictionary = {0 : 'ha',
 								1 : "ha ha",
@@ -438,10 +439,12 @@ class MarkovTickleModule(ALModule):
 		""" Say a random phrases to invite tickling. 
 
 		"""
+		print "asr: {}, bIsRunning: {}".format(self.isASROn, self.bIsRunning)
 		if not self.isASROn and not self.bIsRunning:
 			self.currentStateInvite = self.markovChoice(self.transitionMatrixInviteToTickle[self.currentStateInvite])
 			randomInviteToTicklePhrase = self.inviteToTickleDictionary[self.currentStateInvite]
-			animatedSpeechProxy.say(randomInviteToTicklePhrase, self.bodyLanguageModeConfig)
+			id = animatedSpeechProxy.post.say(randomInviteToTicklePhrase, self.bodyLanguageModeConfig)
+			animatedSpeechProxy.wait(id, 0)
 			# Reset invite timer.
 			self.inviteTimer = 0    
 
@@ -667,8 +670,6 @@ class MarkovTickleModule(ALModule):
 
 		"""
 		self.bIsRunning = True
-		id = self.getName()
-		self.ids.append(id)
 
 		try:
 			self.unSubscribeToWord()
@@ -678,9 +679,11 @@ class MarkovTickleModule(ALModule):
 			wordSaid = youSaid[0]
 			wordSaidProbability = youSaid[1]
 			tellMeWordSaid = "You said " + wordSaid
-			animatedSpeechProxy.say(tellMeWordSaid, self.bodyLanguageModeConfig)
+			id = animatedSpeechProxy.post.say(tellMeWordSaid, self.bodyLanguageModeConfig)
+			animatedSpeechProxy.wait(id, 0)
 			if wordSaidProbability <= 0.4:
-				animatedSpeechProxy.say("But you mumbled a bit!", self.bodyLanguageModeConfig)
+				id = animatedSpeechProxy.post.say("But you mumbled a bit!", self.bodyLanguageModeConfig)
+				animatedSpeechProxy.wait(id, 0)
 			self.yourGamecode[self.yourGamecodeCounter] = wordSaid
 			self.yourGamecodeCounter += 1
 			print "yourGamecodeCounter: ", self.yourGamecodeCounter  
@@ -691,10 +694,6 @@ class MarkovTickleModule(ALModule):
 				self.subscribeToWord()
 
 		finally:
-			try:
-				self.ids.remove(id)
-			except:
-				pass
 			if self.ids == []:
 				self.bIsRunning = False
 
@@ -767,7 +766,8 @@ class MarkovTickleModule(ALModule):
 
 		sayPhrase = self.gameLostDictionary[self.currentStateGameLost]
 
-		animatedSpeechProxy.say(sayPhrase, self.bodyLanguageModeConfig)
+		id = animatedSpeechProxy.post.say(sayPhrase, self.bodyLanguageModeConfig)
+		animatedSpeechProxy.wait(id, 0)
 
 
 	def gameManagement(self):
@@ -775,11 +775,13 @@ class MarkovTickleModule(ALModule):
 
 		"""
 		sayPhrase = "Remember your code, " + str(self.gamecode[self.tickleCounter])
-		animatedSpeechProxy.say(sayPhrase, self.bodyLanguageModeConfig)
+		id = animatedSpeechProxy.post.say(sayPhrase, self.bodyLanguageModeConfig)
+		animatedSpeechProxy.wait(id, 0)
 
 		self.tickleCounter += 1
-		if self.tickleCounter >= 1:
-			animatedSpeechProxy.say("Wow, you are the tickle master. Can you remember the three number code I gave you?", self.bodyLanguageModeConfig)
+		if self.tickleCounter >= 3:
+			id = animatedSpeechProxy.post.say("Wow, you are the tickle master. Can you remember the three number code I gave you?", self.bodyLanguageModeConfig)
+			animatedSpeechProxy.wait(id, 0)
 			self.startSpeechRecognition()
 			while self.yourGamecodeCounter <= 2:
 				time.sleep(0.5)
@@ -793,7 +795,7 @@ class MarkovTickleModule(ALModule):
 			self.generateGameCode()
 			self.tickleCounter = 0
 			self.yourGamecodeCounter = 0
-			self.inviteToTickle()
+			# self.inviteToTickle()
 				
 
 	def touched(self, key, value, message):
@@ -802,42 +804,40 @@ class MarkovTickleModule(ALModule):
 			value = value from event
 
 		"""
-		if not self.eventLock.acquire(False):
-			# Failed to lock the resource.
-			print "Failed to lock"
-			pass
-		else:
-			print "Locked: ", self.eventLock.locked()
-			try:
-				# Unsubscribe from all events to prevent other sensor events
-				self.easyUnsubscribeEvents()
+		if not self.iAmBeingTickled:
+			self.iAmBeingTickled = True
+			self.easyUnsubscribeEvents()
+			
+			# Was the target area tickled?
+			sensorGroupTouched = self.tickleTargetDictionary[key]
+			if sensorGroupTouched == self.tickleTarget:
+				self.tickled(1.5, 8, 1.0, True)
+				self.currentStateTickleSuccessPre = self.markovChoice(self.transitionMatrixTickleSuccessPre[self.currentStateTickleSuccessPre])
+				self.currentStateTickleSuccessPost = self.markovChoice(self.transitionMatrixTickleSuccessPost[self.currentStateTickleSuccessPost])
+				prePhrase = self.tickleSuccessPreDictionary[self.currentStateTickleSuccessPost]
+				postPhrase = self.tickleSuccessPostDictionary[self.currentStateTickleSuccessPost]
+				sayPhrase = prePhrase + sensorGroupTouched + postPhrase
+				id = animatedSpeechProxy.post.say(sayPhrase, self.bodyLanguageModeConfig)
+				animatedSpeechProxy.wait(id, 0)
+				# Chose a new area to tickle if target tickly area was tickled.
+				self.pickTickleTarget()
+				# Check game.
+				self.gameManagement()
+				self.inviteToTickle()	
 
-				# Was the target area tickled?
-				sensorGroupTouched = self.tickleTargetDictionary[key]
-				if sensorGroupTouched == self.tickleTarget:
-					self.tickled(1.5, 8, 1.0, True)
-					self.currentStateTickleSuccessPre = self.markovChoice(self.transitionMatrixTickleSuccessPre[self.currentStateTickleSuccessPre])
-					self.currentStateTickleSuccessPost = self.markovChoice(self.transitionMatrixTickleSuccessPost[self.currentStateTickleSuccessPost])
-					prePhrase = self.tickleSuccessPreDictionary[self.currentStateTickleSuccessPost]
-					postPhrase = self.tickleSuccessPostDictionary[self.currentStateTickleSuccessPost]
-					sayPhrase = prePhrase + sensorGroupTouched + postPhrase
-					animatedSpeechProxy.say(sayPhrase, self.bodyLanguageModeConfig)
-					# Chose a new area to tickle if target tickly area was tickled.
-					self.pickTickleTarget()
-					# Check game.
-					self.gameManagement()
-					
 
-				else:
-					self.tickled(1.25, 5, 0.5, False)
-					self.currentStateTickleAgain = self.markovChoice(self.transitionMatrixTickleAgain[self.currentStateTickleAgain])
-					sayPhrase = "You touched my " + sensorGroupTouched + self.tickleAgainDictionary[self.currentStateTickleAgain]
-					animatedSpeechProxy.say(sayPhrase, self.bodyLanguageModeConfig)
-				
-				# Resubscribe to events.
-				self.easySubscribeEvents("touched")
-			finally:
-				self.eventLock.release()
+			else:
+				self.tickled(1.25, 5, 0.5, False)
+				self.currentStateTickleAgain = self.markovChoice(self.transitionMatrixTickleAgain[self.currentStateTickleAgain])
+				sayPhrase = "You touched my " + sensorGroupTouched + self.tickleAgainDictionary[self.currentStateTickleAgain]
+				id = animatedSpeechProxy.post.say(sayPhrase, self.bodyLanguageModeConfig)
+				animatedSpeechProxy.wait(id, 0)
+			
+			# Resubscribe to events.
+			self.easySubscribeEvents("touched")
+			self.iAmBeingTickled = False
+
+			
 						
 
 	def mainTask(self):
@@ -856,7 +856,7 @@ class MarkovTickleModule(ALModule):
 				time.sleep(1)
 				# If time gone by invite someone to tickle!
 				self.inviteTimer += 1
-				if self.inviteTimer == 20:
+				if self.inviteTimer >= 20:
 					self.inviteToTickle()
 
 
@@ -864,7 +864,7 @@ class MarkovTickleModule(ALModule):
 			print "Interrupted by user, shutting down"
 			self.easyUnsubscribeEvents()
 			self.stopSpeechRecognition()
-			bodyProxy.goToPosture("Crouch", 0.8)
+			bodyProxy.goToPosture("Crouch", 0.6)
 			robotMotionProxy.rest()
 			# stop any post tasks
 			# eg void ALModule::stop(const int& id)
@@ -961,7 +961,7 @@ def main():
 		print "Interrupted by user, shutting down"
 		MarkovTickle.easyUnsubscribeEvents()
 		MarkovTickle.stopSpeechRecognition()
-		MarkovTickle.bodyProxy.goToPosture("SitRelax", 0.8)
+		MarkovTickle.bodyProxy.goToPosture("SitRelax", 0.6)
 		MarkovTickle.robotMotionProxy.rest()
 		MarkovTickle.stopSpeechRecognition()
 		# stop any post tasks
