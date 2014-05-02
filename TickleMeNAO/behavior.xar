@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ChoregrapheProject xmlns="http://www.aldebaran-robotics.com/schema/choregraphe/project.xsd" xar_version="3">
+    <Box name="root" id="-1" localization="8" tooltip="Root box of Choregraphe&apos;s project. Highest level possible." x="0" y="0">
+        <bitmap>media/images/box/root.png</bitmap>
+        <script language="4">
+            <content>
+                <![CDATA[]]>
+</content>
+        </script>
+        <Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" />
+        <Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" />
+        <Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" />
+        <Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" />
+        <Timeline enable="0">
+            <BehaviorLayer name="behavior_layer1">
+                <BehaviorKeyframe name="keyframe1" index="1">
+                    <Diagram>
+                        <Box name="TickleMeNAO" id="1" localization="8" tooltip="TickleMeNAO" x="675" y="57">
+                            <bitmap>media/images/box/box-python-script.png</bitmap>
+                            <script language="4">
+                                <content>
+                                    <![CDATA[mtmd = None
+mt = None
+
+class MyClass(GeneratedClass):
+	def __init__(self):
+		GeneratedClass.__init__(self)
+		global mtmd
+		global mt
+
+	def onLoad(self):
+		#~ puts code for box initialization here
+		pass
+
+	def onUnload(self):
+		#~ puts code for box cleanup here
+		pass
+
+	def onInput_onStart(self, p):
+		# here I do my imports
+		self.do_imports()
+		# now I can make use of the imported code here and in other boxes
+		self.log(dir(mtmd))
+		self.log(dir(mt))
+
+		self.onStopped()
+
+	def onInput_onStop(self):
+		self.onUnload() #~ it is recommanded to call onUnload of this box in a onStop method, as the code written in onUnload is used to stop the box as well
+
+		'''
+		Import the external python now so we don't have to separately import it in
+		every choreographe box that uses one of the external modules. Doing it this
+		way also ensures that if paths change only this box needs to be updated.
+		'''
+	def do_imports(self):
+		ext_path = ALFrameManager.getBehaviorPath(self.behaviorId)+"/src/main/python"
+		self.log("Importing external python at "+ext_path)
+		pythonbridge = ALProxy("ALPythonBridge")
+		pythonbridge.evalFull("import sys; sys.path.append('" + ext_path + "')")
+		pythonbridge.evalFull("import Markov_tickles_motion_data as mtmd")
+		pythonbridge.evalFull("import Markov_tickles.MarkovTickleModule as mt")
+		pythonbridge.evalFull("import jill as bob")
+		self.log("imports completed")]]>
+</content>
+                            </script>
+                            <Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" />
+                            <Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" />
+                            <Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" />
+                            <Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" />
+                        </Box>
+                        <Link inputowner="1" indexofinput="2" outputowner="0" indexofoutput="2" />
+                        <Link inputowner="0" indexofinput="4" outputowner="1" indexofoutput="4" />
+                    </Diagram>
+                </BehaviorKeyframe>
+            </BehaviorLayer>
+        </Timeline>
+    </Box>
+</ChoregrapheProject>
