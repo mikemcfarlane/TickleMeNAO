@@ -527,7 +527,7 @@ class MarkovTickleModule(ALModule):
 			walk2 = [i * -1 for i in walk1]
 
 		# Say and do.
-		speechProxy.setVoice(voice1)
+		speechProxy.setVoice(voice2)
 		speechProxy.setParameter("pitchShift", laughPitch)
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
 		if motionEnabled:
