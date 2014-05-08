@@ -27,13 +27,22 @@ class MyClass(GeneratedClass):
     def __init__(self):
         GeneratedClass.__init__(self)
 
+        # Autonomous Life needs to be
+        self.autonomousLife = ALProxy('ALAutonomousLife')
+
+        self.log(self.autonomousLife.getState())
+
     def onLoad(self):
         #~ puts code for box initialization here
         pass
 
     def onUnload(self):
         #~ puts code for box cleanup here
-        pass
+        self.log(" ----------------- unload ------------- ")
+        global MarkovTickle
+        MarkovTickle.exit()
+        MarkovTickle = None
+
 
     def onInput_onStart(self, p):
         self.do_imports()
@@ -42,13 +51,21 @@ class MyClass(GeneratedClass):
         global MarkovTickle
         MarkovTickle = mt.MarkovTickleModule("MarkovTickle")
 
+        MarkovTickle.mainTask()
+
+        while True:
+            self.log("alive!")
+            time.sleep(1)
+
 
 
         self.onStopped()
 
     def onInput_onStop(self):
-        MarkovTickle = None
-        self.onUnload()
+        self.log(" ----------------- stop ------------- ")
+        self.onUnload() #it is recommended to reuse the clean-up as the box is stopped
+        self.onStopped() #activate the output of the box
+
 
 
     def do_imports(self):

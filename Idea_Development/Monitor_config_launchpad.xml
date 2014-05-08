@@ -1,0 +1,35 @@
+<stm_viewer>
+    <stm_value name="Launchpad/ZoneOfTrackedHuman" alias="Launchpad/ZoneOfTrackedHuman" watch="1" graph="1">
+        <color red="171" green="187" blue="249" />
+    </stm_value>
+    <stm_value name="Launchpad/NoPeopleInZones" alias="Launchpad/NoPeopleInZones" watch="1" graph="1">
+        <color red="29" green="47" blue="115" />
+    </stm_value>
+    <stm_value name="Launchpad/NumPeopleZone2" alias="Launchpad/NumPeopleZone2" watch="1" graph="1">
+        <color red="131" green="226" blue="170" />
+    </stm_value>
+    <stm_value name="Launchpad/NoMotionInZones" alias="Launchpad/NoMotionInZones" watch="1" graph="1">
+        <color red="227" green="172" blue="222" />
+    </stm_value>
+    <stm_value name="Launchpad/NumMotionZone3" alias="Launchpad/NumMotionZone3" watch="1" graph="1">
+        <color red="134" green="169" blue="12" />
+    </stm_value>
+    <stm_value name="Launchpad/NumMotionZone2" alias="Launchpad/NumMotionZone2" watch="1" graph="1">
+        <color red="117" green="77" blue="215" />
+    </stm_value>
+    <stm_value name="Launchpad/TrackedHumanIsLookingAtRobot" alias="Launchpad/TrackedHumanIsLookingAtRobot" watch="1" graph="1">
+        <color red="19" green="240" blue="192" />
+    </stm_value>
+    <stm_value name="Launchpad/NumMotionZone1" alias="Launchpad/NumMotionZone1" watch="1" graph="1">
+        <color red="131" green="146" blue="210" />
+    </stm_value>
+    <stm_value name="Launchpad/PeopleNotSeen" alias="Launchpad/PeopleNotSeen" watch="1" graph="1">
+        <color red="59" green="242" blue="199" />
+    </stm_value>
+    <stm_value name="Launchpad/NumPeopleZone1" alias="Launchpad/NumPeopleZone1" watch="1" graph="1">
+        <color red="11" green="55" blue="37" />
+    </stm_value>
+    <stm_value name="Launchpad/NumPeopleZone3" alias="Launchpad/NumPeopleZone3" watch="1" graph="1">
+        <color red="48" green="4" blue="229" />
+    </stm_value>
+</stm_viewer>

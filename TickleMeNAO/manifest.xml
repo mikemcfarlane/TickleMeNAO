@@ -1,11 +1,38 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<package version="0.0.0">
+<package version="1.0.0" uuid="ticklemenao">
+ <names>
+  <name lang="en_US">TickleMeNAO</name>
+ </names>
+ <descriptions>
+  <description lang="en_US">Try to find NAOs tickly spots and remember the numbers he gives you.</description>
+ </descriptions>
  <supportedLanguages>
   <language>en_US</language>
  </supportedLanguages>
  <contents>
   <behaviorContent path=".">
    <nature>interactive</nature>
+   <names>
+    <name lang="en_US">ticklemenao</name>
+   </names>
+   <descriptions>
+    <description lang="en_US">Try to tickle NAO and remember the numbers he gives you.</description>
+   </descriptions>
+   <triggerSentences>
+    <sentence lang="en_US">tickle</sentence>
+    <sentence lang="en_US">tickle me now</sentence>
+    <sentence lang="en_US">tickle me nao</sentence>
+    <sentence lang="en_US">tickles</sentence>
+    <sentence lang="en_US">i want to tickle you</sentence>
+   </triggerSentences>
+   <loadingResponses/>
+   <autonomous>
+    <condition purpose="launchTrigger"><![CDATA[('Launchpad/NumMotionZone1' >= 1) ~ 1]]></condition>
+   </autonomous>
   </behaviorContent>
  </contents>
+ <requirements>
+  <naoqiRequirement minVersion="1.22.3"/>
+  <robotRequirement model="NAO_H25"/>
+ </requirements>
 </package>

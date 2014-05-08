@@ -1,0 +1,74 @@
+<stm_viewer>
+    <stm_value name="AutonomousLife/LaunchSuggestions" alias="AutonomousLife/LaunchSuggestions" watch="1" graph="1">
+        <color red="171" green="187" blue="249" />
+    </stm_value>
+    <stm_value name="AutonomousLife/CompletedActivity" alias="AutonomousLife/CompletedActivity" watch="1" graph="1">
+        <color red="29" green="47" blue="115" />
+    </stm_value>
+    <stm_value name="AutonomousLife/FocusedActivity" alias="AutonomousLife/FocusedActivity" watch="1" graph="1">
+        <color red="131" green="226" blue="170" />
+    </stm_value>
+    <stm_value name="_ActivityFocusManager/CommandToActivity/Resume" alias="_ActivityFocusManager/CommandToActivity/Resume" watch="1" graph="1">
+        <color red="227" green="172" blue="222" />
+    </stm_value>
+    <stm_value name="_ActivityFocusManager/NextActivity" alias="_ActivityFocusManager/NextActivity" watch="1" graph="1">
+        <color red="134" green="169" blue="12" />
+    </stm_value>
+    <stm_value name="_ActivityFocusManager/CompletedActivity" alias="_ActivityFocusManager/CompletedActivity" watch="1" graph="1">
+        <color red="117" green="77" blue="215" />
+    </stm_value>
+    <stm_value name="EngagementZones/PersonEnteredZone3" alias="EngagementZones/PersonEnteredZone3" watch="1" graph="1">
+        <color red="19" green="240" blue="192" />
+    </stm_value>
+    <stm_value name="EngagementZones/PersonEnteredZone2" alias="EngagementZones/PersonEnteredZone2" watch="1" graph="1">
+        <color red="131" green="146" blue="210" />
+    </stm_value>
+    <stm_value name="EngagementZones/PersonEnteredZone1" alias="EngagementZones/PersonEnteredZone1" watch="1" graph="1">
+        <color red="59" green="242" blue="199" />
+    </stm_value>
+    <stm_value name="EngagementZones/PersonMovedAway" alias="EngagementZones/PersonMovedAway" watch="1" graph="1">
+        <color red="11" green="55" blue="37" />
+    </stm_value>
+    <stm_value name="FaceDetected" alias="FaceDetected" watch="1" graph="1">
+        <color red="48" green="4" blue="229" />
+    </stm_value>
+    <stm_value name="_AutonomousLaunchpad/LaunchSuggestions" alias="_AutonomousLaunchpad/LaunchSuggestions" watch="1" graph="1">
+        <color red="63" green="60" blue="131" />
+    </stm_value>
+    <stm_value name="_ActivityFocusManager/FocusedActivity" alias="_ActivityFocusManager/FocusedActivity" watch="1" graph="1">
+        <color red="185" green="111" blue="246" />
+    </stm_value>
+    <stm_value name="EngagementZones/PeopleInZone3" alias="EngagementZones/PeopleInZone3" watch="1" graph="1">
+        <color red="101" green="90" blue="11" />
+    </stm_value>
+    <stm_value name="EngagementZones/PeopleInZone1" alias="EngagementZones/PeopleInZone1" watch="1" graph="1">
+        <color red="252" green="155" blue="153" />
+    </stm_value>
+    <stm_value name="AutonomousLife/State" alias="AutonomousLife/State" watch="1" graph="1">
+        <color red="0" green="178" blue="82" />
+    </stm_value>
+    <stm_value name="FaceDetection/FaceDetected" alias="FaceDetection/FaceDetected" watch="1" graph="1">
+        <color red="59" green="11" blue="138" />
+    </stm_value>
+    <stm_value name="BacklightingDetection/BacklightingDetected" alias="BacklightingDetection/BacklightingDetected" watch="1" graph="1">
+        <color red="6" green="170" blue="143" />
+    </stm_value>
+    <stm_value name="ALBasicAwareness/HumanLost" alias="ALBasicAwareness/HumanLost" watch="1" graph="1">
+        <color red="60" green="189" blue="202" />
+    </stm_value>
+    <stm_value name="_ActivityFocusManager/CommandToActivity/Pause" alias="_ActivityFocusManager/CommandToActivity/Pause" watch="1" graph="1">
+        <color red="154" green="93" blue="238" />
+    </stm_value>
+    <stm_value name="EngagementZones/PeopleInZone2" alias="EngagementZones/PeopleInZone2" watch="1" graph="1">
+        <color red="129" green="180" blue="95" />
+    </stm_value>
+    <stm_value name="_ALBasicAwareness/ServoingEvent" alias="_ALBasicAwareness/ServoingEvent" watch="1" graph="1">
+        <color red="30" green="209" blue="74" />
+    </stm_value>
+    <stm_value name="FrontTactilTouched" alias="FrontTactilTouched" watch="1" graph="1">
+        <color red="18" green="93" blue="77" />
+    </stm_value>
+    <stm_value name="ALBasicAwareness/HumanTracked" alias="ALBasicAwareness/HumanTracked" watch="1" graph="1">
+        <color red="7" green="196" blue="184" />
+    </stm_value>
+</stm_viewer>
