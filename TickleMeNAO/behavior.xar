@@ -86,6 +86,157 @@ class MyClass(GeneratedClass):
                             <Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" />
                             <Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" />
                         </Box>
+                        <Box name="TactileCodes" id="2" localization="8" tooltip="Detection de sequence tactile sur la tête de Nao." x="215" y="58">
+                            <bitmap>media/images/box/sensors/tactileHead.png</bitmap>
+                            <script language="4">
+                                <content>
+                                    <![CDATA[class SequenceHandler():
+    def __init__(self, aSeq):
+        self.aTactilSequence = aSeq
+        self.reset()
+
+    def reset(self):
+        self.nTapTime = None
+        self.nTapIndex = 2
+
+    def update(self, aState, nTime):
+        # In any case, if too much time elasped, sequence is invalidated
+        if self.nTapTime != None and (nTime - self.nTapTime) > self.aTactilSequence[self.nTapIndex-1]:
+            self.reset()
+        # If current sensors state match current expected shape
+        if aState == self.aTactilSequence[self.nTapIndex]:
+            self.nTapTime = nTime
+            self.nTapIndex += 2
+        # If current sensor state does not match sequence at current index BUT match sequence at first index
+        elif aState == self.aTactilSequence[1]:
+            self.nTapTime = nTime
+            self.nTapIndex = 4
+        # If we've reach the end of the sequence, then output !!
+        if self.nTapIndex > len(self.aTactilSequence):
+            return self.aTactilSequence[0]
+        else:
+            return None
+
+class MyClass(GeneratedClass):
+    def __init__(self):
+        GeneratedClass.__init__(self)
+        self.bIsRunning = False
+        # Build a list of devices with full name
+        self.aDeviceNames = ["%sTactilTouched" % name for name in ["Front", "Middle", "Rear"]]
+
+        # Parameters
+        parameters = [   ["SingleFront", "Single front", [1, 0, 0], 1.0, [0, 0, 0]],
+                                ["SingleMiddle", "Single middle", [0, 1, 0], 1.0, [0, 0, 0]],
+                                ["SingleRear", "Single rear", [0, 0, 1], 1.0, [0, 0, 0]],
+                                ["CaressFtoR", "Caress front to rear", [1, 0, 0], 0.5, [1, 1, 0], 0.5, [0, 1, 0], 0.5, [0, 1, 1], 0.5, [0, 0, 1]],
+                                ["CaressRtoF", "Caress rear to front", [0, 0, 1], 0.5, [0, 1, 1], 0.5, [0, 1, 0], 0.5, [1, 1, 0], 0.5, [1, 0, 0]],
+                                ["SingleTap", "Single tap", [1, 1, 1], 0.5, [0, 0, 0]],
+                                ["EnumerateFtoR", "Enumerate front to rear", [1, 0, 0], 1.0, [0, 1, 0], 1.0, [0, 0, 1]],
+                                ["EnumerateRtoF", "Enumerate rear to front", [0, 0, 1], 1.0, [0, 1, 0], 1.0, [1, 0, 0]],
+                                ["ZoomIn", "Zoom in", [1, 0, 1], 1.0, [0, 1, 0]],
+                                ["ZoomOut", "Zoom out", [0, 1, 0], 1.0, [1, 0, 1]],
+                                ["DoubleFront", "Double front", [1, 0, 0], 1.0, [0, 0, 0], 1.0, [1, 0, 0]],
+                                ["DoubleMiddle", "Double middle", [0, 1, 0], 1.0, [0, 0, 0], 1.0, [0, 1, 0]],
+                                ["DoubleRear", "Double rear", [0, 0, 1], 1.0, [0, 0, 0], 1.0, [0, 0, 1]],
+                                ["DoubleTap", "Double tap", [1, 1, 1], 1.0, [0, 0, 0], 1.0, [1, 1, 1]],
+                                ["SecretCode", "Secret code", [1, 0, 1], 1.0, [0, 0, 0], 1.0, [1, 0, 1], 1.0, [0, 1, 0]],
+                                ["CalmDown", "Calm down", [1, 1, 1], 8.0, [0, 0, 0]]    ]
+        # Create a sequence handler object for each enable sequence
+        self.aSequenceHandler = []
+        for seq in parameters:
+            if self.getParameter(seq[1]):
+                self.aSequenceHandler.append(SequenceHandler(seq))
+
+    def onLoad(self):
+        self.bIsRunning = False
+        self.onInput_reset()
+
+    def onUnload(self):
+        self.onInput_onStop()
+
+    def onSensorChange(self, pDataName, pValue, pMessage):
+        "This is called whenever one of the three tactil sensors state change"
+        aState = ALMemory.getListData( self.aDeviceNames )
+        # This prevent to process several times the same sensor state
+        if aState != self.aState:
+            self.aState = aState
+            nTime = time.time()
+            #~ self.log(str(aState))
+            for seq in self.aSequenceHandler:
+                sOutput = seq.update(aState, nTime)
+                if  sOutput != None:
+                    self.Match(sOutput)
+                    # Force all other sequence to be reset to prevent multiple match.
+                    # But this will prevent sequences like "DoubleTap" to work since each "SingleTap" will reset "DoubleTap"
+                    self.onInput_reset()
+                    # Get the output function from the sequence name
+                    try:
+                        func = getattr(self, sOutput)
+                        func()
+                    # If no output function found, just forget it
+                    except:
+                        pass
+
+    def onInput_onStart(self):
+        if not self.bIsRunning:
+            self.bIsRunning = True
+            # Save initial sensor state
+            self.aState = None#ALMemory.getListData( self.aDeviceNames )
+            # Subscribe to each sensor device
+            for device in self.aDeviceNames:
+                ALMemory.subscribeToEvent( device, self.getName(), "onSensorChange" )
+
+    def onInput_onStop(self):
+        if self.bIsRunning:
+            for device in self.aDeviceNames:
+                try:
+                    ALMemory.unsubscribeToEvent( device, self.getName() )
+                except:
+                    pass
+            self.onInput_reset()
+            self.bIsRunning = False
+
+    def onInput_reset(self):
+        for seq in self.aSequenceHandler:
+            seq.reset()]]>
+</content>
+                            </script>
+                            <Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" />
+                            <Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" />
+                            <Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" />
+                            <Output name="Match" type="3" type_size="1" nature="2" inner="0" tooltip="double tap" id="4" />
+                            <Output name="SingleTap" type="1" type_size="1" nature="2" inner="0" tooltip="" id="5" />
+                            <Output name="DoubleFront" type="1" type_size="1" nature="2" inner="0" tooltip="" id="6" />
+                            <Output name="DoubleMiddle" type="1" type_size="1" nature="2" inner="0" tooltip="" id="7" />
+                            <Output name="DoubleRear" type="1" type_size="1" nature="2" inner="0" tooltip="" id="8" />
+                            <Output name="EnumerateRtoF" type="1" type_size="1" nature="2" inner="0" tooltip="" id="9" />
+                            <Output name="EnumerateFtoR" type="1" type_size="1" nature="2" inner="0" tooltip="" id="10" />
+                            <Output name="CaressRtoF" type="1" type_size="1" nature="2" inner="0" tooltip="" id="11" />
+                            <Output name="CaressFtoR" type="1" type_size="1" nature="2" inner="0" tooltip="" id="12" />
+                            <Output name="DoubleTap" type="1" type_size="1" nature="2" inner="0" tooltip="" id="13" />
+                            <Output name="ZoomIn" type="1" type_size="1" nature="2" inner="0" tooltip="" id="14" />
+                            <Output name="ZoomOut" type="1" type_size="1" nature="2" inner="0" tooltip="" id="15" />
+                            <Output name="CalmDown" type="1" type_size="1" nature="2" inner="0" tooltip="" id="16" />
+                            <Output name="SingleFront" type="1" type_size="1" nature="2" inner="0" tooltip="" id="17" />
+                            <Output name="SingleMiddle" type="1" type_size="1" nature="2" inner="0" tooltip="" id="18" />
+                            <Output name="SingleRear" type="1" type_size="1" nature="2" inner="0" tooltip="" id="19" />
+                            <Parameter name="Caress front to rear" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="Caress front to rear" id="20" />
+                            <Parameter name="Caress rear to front" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="21" />
+                            <Parameter name="Single tap" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="22" />
+                            <Parameter name="Double front" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="23" />
+                            <Parameter name="Double middle" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="24" />
+                            <Parameter name="Double rear" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="25" />
+                            <Parameter name="Calm down" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="26" />
+                            <Parameter name="Enumerate front to rear" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="27" />
+                            <Parameter name="Enumerate rear to front" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="28" />
+                            <Parameter name="Zoom in" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="29" />
+                            <Parameter name="Zoom out" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="30" />
+                            <Parameter name="Double tap" inherits_from_parent="0" content_type="0" value="0" default_value="0" tooltip="" id="31" />
+                            <Parameter name="Secret code" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="32" />
+                            <Parameter name="Single front" inherits_from_parent="0" content_type="0" value="1" default_value="1" tooltip="" id="33" />
+                            <Parameter name="Single middle" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="34" />
+                            <Parameter name="Single rear" inherits_from_parent="0" content_type="0" value="0" default_value="1" tooltip="" id="35" />
+                        </Box>
                         <Link inputowner="1" indexofinput="2" outputowner="0" indexofoutput="2" />
                         <Link inputowner="0" indexofinput="4" outputowner="1" indexofoutput="4" />
                     </Diagram>

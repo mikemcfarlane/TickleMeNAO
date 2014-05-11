@@ -99,6 +99,9 @@ class MarkovTickleModule(ALModule):
 
 		# Variables for animated speech.
 		self.bodyLanguageModeConfig = {"bodyLanguageMode":"contextual"}
+		self.speechVolume = 1.0
+		# Voice choices are: voice1 = "allison", voice2 = "audrey"
+		self.voice = "allison"
 
 		# Variables for playing sound files.
 		self.volume = 0.75
@@ -177,9 +180,9 @@ class MarkovTickleModule(ALModule):
 											1 : "Tickle on great one", # Use with heavy metal.
 											2 : "Listen to the crowd roar you are so great!" # Use with applause.
 											}
-		self.gameWinAnimationSoundsDictionary = { 	0 : "/home/nao/audio/mystic1.wav",
-													1 : "/home/nao/audio/heavyMetal1.wav",
-													2 : "/home/nao/audio/applause1.wav"
+		self.gameWinAnimationSoundsDictionary = { 	0 : "/var/persistent/home/nao/.local/share/PackageManager/apps/ticklemenao/mystic1.wav",
+													1 : "/var/persistent/home/nao/.local/share/PackageManager/apps/ticklemenao/heavyMetal1.wav",
+													2 : "/var/persistent/home/nao/.local/share/PackageManager/apps/ticklemenao/applause1.wav"
 												}
 
 		self.gameLostDictionary = { 0 : "That was the wrong code, or my microphones need cleaned out!",
@@ -458,11 +461,10 @@ class MarkovTickleModule(ALModule):
 		normalPitch = 0
 		doubleVoiceLaugh = 1.0
 		doubleVoiceNormal = 0
-		voice1 = "allison"
-		voice2 = "audrey"
+		
 		# Define how many action elements will be actioned each 'tickle' action.
 		# Add 1 so something always happens.
-		numWordsPerTickle = int(np.random.random() * numWordsPerTickleConstant) + 1
+		numWordsPerTickle = int(np.random.random() * numWordsPerTickleConstant) + 3
 		wordList1 = []
 
 		# LED parameters
@@ -527,7 +529,6 @@ class MarkovTickleModule(ALModule):
 			walk2 = [i * -1 for i in walk1]
 
 		# Say and do.
-		speechProxy.setVoice(voice2)
 		speechProxy.setParameter("pitchShift", laughPitch)
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
 		if motionEnabled:
@@ -565,7 +566,7 @@ class MarkovTickleModule(ALModule):
 		speechProxy.setParameter("pitchShift", normalPitch)
 		speechProxy.setParameter("doubleVoiceLevel", doubleVoiceLaugh)
 		# Return to default pose
-		bodyProxy.goToPosture(self.defaultPose, self.fractionMaxSpeed)
+		#bodyProxy.goToPosture(self.defaultPose, self.fractionMaxSpeed)
 		# Reset invite timer.
 		self.inviteTimer = 0
 		# Reset all LEDs to default.
@@ -760,7 +761,7 @@ class MarkovTickleModule(ALModule):
 
 		self.tickleCounter += 1
 		if self.tickleCounter >= 3:
-			id = animatedSpeechProxy.post.say("Wow, you are the tickle master. Can you remember the three number code I gave you?", self.bodyLanguageModeConfig)
+			id = animatedSpeechProxy.post.say("Wow, you are the tickle master. Can you remember the three number code I gave you? Tell me one number at a time.", self.bodyLanguageModeConfig)
 			animatedSpeechProxy.wait(id, 0)
 			self.startSpeechRecognition()
 			while self.yourGamecodeCounter <= 2:
@@ -791,7 +792,7 @@ class MarkovTickleModule(ALModule):
 			# Was the target area tickled?
 			sensorGroupTouched = self.tickleTargetDictionary[key]
 			if sensorGroupTouched == self.tickleTarget:
-				self.tickled(1.5, 8, 1.0, True)
+				self.tickled(1.5, 10, 1.0, True)
 				self.currentStateTickleSuccessPre = self.markovChoice(self.transitionMatrixTickleSuccessPre[self.currentStateTickleSuccessPre])
 				self.currentStateTickleSuccessPost = self.markovChoice(self.transitionMatrixTickleSuccessPost[self.currentStateTickleSuccessPost])
 				prePhrase = self.tickleSuccessPreDictionary[self.currentStateTickleSuccessPost]
@@ -863,6 +864,13 @@ class MarkovTickleModule(ALModule):
 		try:
 			# Subscribe to the sensor events.
 			self.easySubscribeEvents("touched")
+
+			# Set voice character.
+			#print " --------------- speed: {} --------------- ".format(speechProxy.getParameter("speed"))
+			speechProxy.setVoice(self.voice)
+			speechProxy.setVolume(self.speechVolume)
+			# At 1.22.3 voice speed setting is only avaiable in Japanese.
+			# speechProxy.setParameter("speed", 4.0)
 
 			# Pick an initial tickle target.
 			self.pickTickleTarget()
