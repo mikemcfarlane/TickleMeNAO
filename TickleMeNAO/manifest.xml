@@ -27,7 +27,7 @@
    </triggerSentences>
    <loadingResponses/>
    <autonomous>
-    <condition purpose="launchTrigger"><![CDATA[('Launchpad/NumMotionZone1' >= 1) ~ 1]]></condition>
+    <condition purpose="launchTrigger"><![CDATA[('Launchpad/NumMotionZone1' >= 1) ~ 1 !! ('Launchpad/NumMotionZone2' >= 1) ~ 1 ]]></condition>
    </autonomous>
   </behaviorContent>
  </contents>
