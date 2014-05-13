@@ -5,10 +5,10 @@
 """
 
 __author__ = "Mike McFarlane mike@mikemcfarlane.co.uk"
-__version__ = "Revision: 0.14"
-__date__ = "Date: 11-04-14"
+__version__ = "Revision: 1.0"
+__date__ = "Date: 13-05-14"
 __copyright__ = "Copyright (c)Mike McFarlane 2014"
-__license__ = "TBC"
+__license__ = "MIT License"
 
 
 # DESCRIPTION:
@@ -28,13 +28,10 @@ __license__ = "TBC"
 # USAGE: 
 # Run from Terminal
 # TODO:
-# - add turn left and turn right to robotMotionMatrix
 # - add a tummy tickle with chest ultrasound sensors verified with bottom facing camera?
 # - foot sensors???
 # - add more phrases and laughs to speechMatrix
 # - modify the not being tickled array so the robot does some moves whilst waiting to be tickled, can set flag in main while loop.
-# - for the purposes of this text code, ask user to say target sensor??? Might be better to guage feedback on any sensor is ticklish first?
-# - add encouraging feedback to sensor touched methods if a sensor is touched, but it is not the target sensor.
 # - split test some repeatable animations, with Markov Chain driven animations. Can be done by modifying
 # the matrices so only two states. [request from ASK-NAO forum].
 
@@ -44,7 +41,6 @@ import sys
 import numpy as np
 from optparse import OptionParser
 import Markov_tickles_motion_data as mtmd
-from threading import Lock
 
 # todo: investigate custom exceptions when more time
 #import Markov_tickles_exceptions as mte
@@ -138,7 +134,6 @@ class MarkovTickleModule(ALModule):
 		self.tickleTarget = ""
 
 		# Thread locks/mutexes.
-		self.eventLock = Lock()
 		self.iAmBeingTickled = False
 		
 		self.wordDictionary = {0 : 'ha',
