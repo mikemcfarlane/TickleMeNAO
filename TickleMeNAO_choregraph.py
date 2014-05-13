@@ -9,6 +9,7 @@ from naoqi import ALModule
 # Global variables to store module instances and proxies
 MarkovTickle = None
 memory = None
+memoryStop = None
 speechProxy = None
 animatedSpeechProxy = None
 bodyProxy = None
@@ -27,6 +28,7 @@ class MyClass(GeneratedClass):
 
         # Globals for proxies
         global memory
+        global memoryStop
         global speechProxy
         global animatedSpeechProxy
         global bodyProxy
@@ -79,6 +81,8 @@ class MyClass(GeneratedClass):
 
         # Thread locks/mutexes.
         self.iAmBeingTickled = False
+        self.rightHandFlag = False
+        self.leftHandFlag = False
         
         self.wordDictionary = {0 : 'ha',
                                 1 : "ha ha",
@@ -182,6 +186,15 @@ class MyClass(GeneratedClass):
                                 "HandLeftLeftTouched",
                                 "HandLeftRightTouched"
                                 ]
+
+        self.subscriptionStopList = [
+                                    "HandRightBackTouched",
+                                    "HandRightLeftTouched",
+                                    "HandRightRightTouched",
+                                    "HandLeftBackTouched",
+                                    "HandLeftLeftTouched",
+                                    "HandLeftRightTouched"
+                                    ]
 
                 
         # Transition matrices in numpy format
@@ -887,6 +900,10 @@ class MyClass(GeneratedClass):
         except Exception, e:
             print "Could not create proxy to ALMemory. Error: ", e
         try:
+            memoryStop = ALProxy("ALMemory")
+        except Exception, e:
+            print "Could not create proxy to ALMemory for stop. Error: ", e
+        try:
             LEDProxy = ALProxy("ALLeds")
         except Exception, e:
             print "Could not create proxy to ALLeds. Error: ", e
@@ -1335,6 +1352,13 @@ class MyClass(GeneratedClass):
             value = value from event
 
         """
+        # If both left and right hand touched together need to stop, so check what touched here.
+        sensorGroupTouched = self.tickleTargetDictionary[key]
+        if sensorGroupTouched == "right hand":
+            self.rightHandFlag = True
+        if sensorGroupTouched == "left hand":
+            self.leftHandFlag = True
+
         if not self.iAmBeingTickled:
             self.iAmBeingTickled = True
             self.easyUnsubscribeEvents()
@@ -1379,14 +1403,7 @@ class MyClass(GeneratedClass):
                 #print "Subscribed to %s." % eventName
             except Exception, e:
                 print "Subscribe exception error %s for %s." % (e, eventName)
-        # Other subscriptions.
-        # Check battery interesting idea, but annoying.
-        # try: 
-        #   memory.subscribeToEvent("BatteryDisChargingFlagChanged", self.getName(), "batteryChange")
-        # except Exception, e:
-        #   print "Subscribe exception error for %s." % (e) 
-
-
+        
     def easyUnsubscribeEvents(self):
         """ Unsubscribes from all events in subscriptionList.
 
@@ -1397,12 +1414,49 @@ class MyClass(GeneratedClass):
                 #print "Unsubscribed from %s." % eventName
             except Exception, e:
                 print "Unsubscribe exception error %s for %s." % (e, eventName)
-        # Other unsubscribes.
-        # try:
-        #   memory.unsubscribeToEvent("BatteryDisChargingFlagChanged", self.getName())
-        #   #print "Unsubscribed from %s." % eventName
-        # except Exception, e:
-        #   print "Unsubscribe exception error for %s." % (e)
+        
+
+
+    def subscribeEventsForStop(self):
+        """ Subscribes to hand touch events. If both hands are touched then stop.
+
+        """
+        self.log(" -------------- subscribing now ------------- ")
+        for eventName in self.subscriptionStopList:
+            try:
+                if "Right" in eventName: 
+                    self.log(" ------------ subscribe {} ---------- ".format(eventName))
+                    memoryStop.subscribeToEvent(eventName, self.getName(), "setRightHandFlag")
+                elif "Left" in eventName:
+                    self.log(" ------------ subscribe left ")
+                    memoryStop.subscribeToEvent(eventName, self.getName(), "setLeftHandFlag")
+            except Exception, e:
+                print "Subscribe exception error %s for %s." % (e, eventName)
+
+    def unSubscribeEventsForStop(self):
+        """ Unsubscribes from hand touch events for stop.
+
+        """
+        for eventName in self.subscriptionStopList:
+            try:
+                memoryStop.unsubscribeToEvent(eventName, self.getName())
+                #print "Unsubscribed from %s." % eventName
+            except Exception, e:
+                print "Unsubscribe exception error %s for %s." % (e, eventName)
+
+    def setRightHandFlag(self, key, value, msg):
+        """ Sets a right hand touched flag for stop.
+
+        """
+        self.log(" --------------- right hand touched --------------")
+
+
+
+    def setLeftHandFlag(self, key, value, msg):
+        """ Sets a left hand touched flag for stop.
+
+        """
+        self.log(" --------------- left hand touched --------------")
                         
 
     def mainTask(self):
@@ -1412,6 +1466,8 @@ class MyClass(GeneratedClass):
         
         # Subscribe to the sensor events.
         self.easySubscribeEvents("touched")
+
+        self.subscribeEventsForStop()
 
         # Set voice character.
         #print " --------------- speed: {} --------------- ".format(speechProxy.getParameter("speed"))

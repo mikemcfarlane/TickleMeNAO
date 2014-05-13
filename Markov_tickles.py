@@ -57,7 +57,9 @@ NAO_IP = "mistcalf.local"
 
 # Global variables to store module instances and proxies
 MarkovTickle = None
+MarkovTickleStop = None
 memory = None
+memoryStop = None
 speechProxy = None
 animatedSpeechProxy = None
 bodyProxy = None
@@ -128,7 +130,9 @@ class MarkovTickleModule(ALModule):
 		self.isASROn = False
 		self.bIsRunning = False
 		self.ids = []
-		self.isWordRecognisedSubscribed = False 
+		self.isWordRecognisedSubscribed = False
+		self.bIntroIsRunning = False
+		self.yourAnswer = ""
 
 		# Variables for tickle game
 		self.tickleTarget = ""
@@ -180,9 +184,9 @@ class MarkovTickleModule(ALModule):
 											1 : "Tickle on great one", # Use with heavy metal.
 											2 : "Listen to the crowd roar you are so great!" # Use with applause.
 											}
-		self.gameWinAnimationSoundsDictionary = { 	0 : "/var/persistent/home/nao/.local/share/PackageManager/apps/ticklemenao/mystic1.wav",
-													1 : "/var/persistent/home/nao/.local/share/PackageManager/apps/ticklemenao/heavyMetal1.wav",
-													2 : "/var/persistent/home/nao/.local/share/PackageManager/apps/ticklemenao/applause1.wav"
+		self.gameWinAnimationSoundsDictionary = { 	0 : "/home/nao/audio/mystic1.wav",
+													1 : "/home/nao/audio/heavyMetal1.wav",
+													2 : "/home/nao/audio/applause1.wav"
 												}
 
 		self.gameLostDictionary = { 0 : "That was the wrong code, or my microphones need cleaned out!",
@@ -372,7 +376,6 @@ class MarkovTickleModule(ALModule):
 			print "Could not creat proxy to ALAudioPlayer. Error: ", e
 
 		
-
 		# ---------------- END __init__ ---------------------------
 
 	def generateGameCode(self):
@@ -646,6 +649,110 @@ class MarkovTickleModule(ALModule):
 			pass
 
 
+	def startSpeechRecognition2(self):
+		""" Setup and start speech recognition. 
+
+		"""
+		if not self.isASROn:
+			asrProxy.setLanguage("English")
+			vocabulary = ["yes", "no"]
+				   
+			try:
+				asrProxy.setVocabulary(vocabulary, False)
+			except Exception, e:
+				print " asr set vocab error ", e
+			try:
+				asrProxy.setParameter("NbHypotheses", 2)
+			except Exception, e:
+				print "asr set parameter error ", e
+			# try:
+			#     print asrProxy.getParameter("NbHypotheses")
+			# except Exception, e:
+			#     print "asr can not get parameter ", e
+			try:
+				asrProxy.subscribe("ASR")
+			except Exception, e:
+				print "asr can not subscribe ", e
+			self.isASROn = True
+		else:
+			pass
+		# Lastly subscribe to wordrecognized.
+		self.subscribeToWord2()
+
+	def subscribeToWord2(self):
+		""" Subscribe to WordRecognized.
+
+		"""
+		if not self.isWordRecognisedSubscribed:
+			try:
+				memory.subscribeToEvent("WordRecognized",self.getName(),"answerRecognized")
+			except Exception, e:
+				print "memory can not subscribe to wordrecognized ", e
+			self.isWordRecognisedSubscribed = True
+		else:
+			pass
+
+	def stopSpeechRecognition2(self):
+		""" Stop speech recognition.
+
+		"""
+		if self.isASROn:
+			try:
+				asrProxy.unsubscribe("ASR")
+			except Exception, e:
+				print "Exception stopping speech recognition, error: ", e
+			self.isASROn = False
+		else:
+			pass
+		# Lastly unsubscribe from WordRecognized.
+		self.unSubscribeToWord2()
+
+
+	def unSubscribeToWord2(self):
+		""" Unsubscribe from WordRecognized.
+
+		"""
+		if self.isWordRecognisedSubscribed:
+			try:
+				memory.unsubscribeToEvent("WordRecognized", self.getName())
+			except Exception, e:
+				print "Could not unsubscribe from WordRecognized, error: ", e
+			self.isWordRecognisedSubscribed = False
+		else:
+			pass
+
+	def answerRecognized(self):
+		""" NAO does this when he recognises the word.
+
+		"""
+		self.bIsRunning = True
+
+		try:
+			self.unSubscribeToWord2()
+			# get WordRecognized
+			youSaid = memory.getData("WordRecognized")
+			# tell the human some stuff
+			wordSaid = youSaid[0]
+			wordSaidProbability = youSaid[1]
+			tellMeWordSaid = "You said " + wordSaid
+			id = animatedSpeechProxy.post.say(tellMeWordSaid, self.bodyLanguageModeConfig)
+			animatedSpeechProxy.wait(id, 0)
+			if wordSaidProbability <= 0.4:
+				id = animatedSpeechProxy.post.say("But you mumbled a bit!", self.bodyLanguageModeConfig)
+				animatedSpeechProxy.wait(id, 0)
+			self.yourAnswer = wordSaid
+			# wait a bit to avoid robot speech triggering WordRecognized event
+			time.sleep(2)
+			# Check if ASR still on ie not been turned off by gameManagement()
+			if self.isASROn:
+				self.subscribeToWord2()
+
+		finally:
+			if self.ids == []:
+				self.bIsRunning = False
+				self.bIntroIsRunning = False
+
+
 	def codeRecognized(self, key, value, message):
 		""" NAO does this when he recognizes the code number.
 
@@ -829,12 +936,6 @@ class MarkovTickleModule(ALModule):
 				#print "Subscribed to %s." % eventName
 			except Exception, e:
 				print "Subscribe exception error %s for %s." % (e, eventName)
-		# Other subscriptions.
-		# Check battery interesting idea, but annoying.
-		# try: 
-		# 	memory.subscribeToEvent("BatteryDisChargingFlagChanged", self.getName(), "batteryChange")
-		# except Exception, e:
-		# 	print "Subscribe exception error for %s." % (e) 
 
 
 	def easyUnsubscribeEvents(self):
@@ -847,26 +948,62 @@ class MarkovTickleModule(ALModule):
 				#print "Unsubscribed from %s." % eventName
 			except Exception, e:
 				print "Unsubscribe exception error %s for %s." % (e, eventName)
-		# Other unsubscribes.
-		# try:
-		# 	memory.unsubscribeToEvent("BatteryDisChargingFlagChanged", self.getName())
-		# 	#print "Unsubscribed from %s." % eventName
-		# except Exception, e:
-		# 	print "Unsubscribe exception error for %s." % (e)
-						
+
+	def shutdown(self):
+		""" We are done!
+
+		"""
+		while self.iAmBeingTickled:
+			time.sleep(0.5)
+		id = animatedSpeechProxy.post.say("ok, let's stop tickling!")
+		animatedSpeechProxy.wait(id, 0)
+		self.easyUnsubscribeEvents()
+		self.stopSpeechRecognition()
+		bodyProxy.goToPosture("Crouch", 0.6)
+		robotMotionProxy.rest()
+		# stop any post tasks
+		# eg void ALModule::stop(const int& id)
+		try:
+			myBroker.shutdown()
+		except Exception, e:
+			print "Error shutting down broker: ", e
+		try:
+			sys.exit(0)
+		except Exception, e:
+			print "Error exiting system: ", e
+
+	def doIntroduction(self):
+		""" NAO does an introduction to the app and asks person if they want instructions.
+
+		"""
+		sayPhrase = "Hi, this is Tickle Me NAO, do you want to hear instructions?"
+		id = animatedSpeechProxy.post.say(sayPhrase, self.bodyLanguageModeConfig)
+		animatedSpeechProxy.wait(id, 0)
+		self.bIntroIsRunning = True
+		self.startSpeechRecognition2()
+		while self.bIntroIsRunning:
+			time.sleep(1.0)
+		self.stopSpeechRecognition2()
+		if self.yourAnswer == "yes":
+			sayPhrase = "You have to find my tickly spot. It might be my head top, my hands, or the front of my feet. The tickly spot will change through the game. If you find my tickly spot I will give you a code number. Remember the code number I give you, when you tickle me three times I will ask for the code. One number at a time. If you get it right I will do something fun just for you. To stop the game hold both my hands in yours."
+			id = animatedSpeechProxy.post.say(sayPhrase, self.bodyLanguageModeConfig)
+			animatedSpeechProxy.wait(id, 0)
+		else:
+			sayPhrase = "ok, let's tickle!"
+			id = animatedSpeechProxy.post.say(sayPhrase, self.bodyLanguageModeConfig)
+			animatedSpeechProxy.wait(id, 0)
+
 
 	def mainTask(self):
 		""" Temp main task.
 
 		"""
-		global myBroker
 
 		try:
 			# Subscribe to the sensor events.
 			self.easySubscribeEvents("touched")
 
 			# Set voice character.
-			#print " --------------- speed: {} --------------- ".format(speechProxy.getParameter("speed"))
 			speechProxy.setVoice(self.voice)
 			speechProxy.setVolume(self.speechVolume)
 			# At 1.22.3 voice speed setting is only avaiable in Japanese.
@@ -884,42 +1021,143 @@ class MarkovTickleModule(ALModule):
 			# Go to default posture.
 			bodyProxy.goToPosture(self.defaultPose, self.fractionMaxSpeed)
 
+			self.doIntroduction()
+
 			# Invite to play the game:-)
 			self.inviteToTickle()
 
-			while True:
+			while (not memory.getData("rightHandFlag")) or (not memory.getData("leftHandFlag")):
 				print "Alive! {}".format(self.inviteTimer)
-				# freeMemory = systemProxy.freeMemory()
-				# totalMemory = systemProxy.totalMemory()
-				# print "-------
-				# print "Free mem (kb): {}. Total mem (kb): {}.".format(freeMemory, totalMemory)
 				time.sleep(1)
 				# If time gone by invite someone to tickle!
 				self.inviteTimer += 1
 				if self.inviteTimer >= 20:
 					self.inviteToTickle()
 
+			self.shutdown()
+
 
 		except KeyboardInterrupt:
 			print "Interrupted by user, shutting down"
-			self.easyUnsubscribeEvents()
-			self.stopSpeechRecognition()
-			bodyProxy.goToPosture("Crouch", 0.6)
-			robotMotionProxy.rest()
-			# stop any post tasks
-			# eg void ALModule::stop(const int& id)
+			self.shutdown()
+			
+
+class MarkovTickleStopModule(ALModule):
+	""" Simple module for moitoring the hand sensors and stopping NAO via an ALMemory flag. 
+
+	"""
+
+	def __init__(self, name):
+		""" Initialise module. 
+
+		"""
+		ALModule.__init__(self, name)
+
+		# Globals for proxies.
+		global memoryStop
+
+		try:
+			memoryStop = ALProxy("ALMemory")
+		except Exception, e:
+			print "Could not create proxy to ALMemory. Error: ", e
+
+		memoryStop.insertData("rightHandFlag", False)
+		memoryStop.insertData("leftHandFlag", False)
+
+		self.subscriptionStopList = [
+									"HandRightBackTouched",
+									"HandRightLeftTouched",
+									"HandRightRightTouched",
+									"HandLeftBackTouched",
+									"HandLeftLeftTouched",
+									"HandLeftRightTouched"
+									]
+
+		self.subscribeEventsForStop("both")
+
+	def subscribeEventsForStop(self, robotSide = "both"):
+		""" Subscribes to hand touch events. If both hands are touched then stop.
+
+		"""
+		for eventName in self.subscriptionStopList:
 			try:
-				myBroker.shutdown()
+				if robotSide == "right": 
+					if "HandRight" in eventName:
+						memoryStop.subscribeToEvent(eventName, self.getName(), "setRightHandFlag")
+				elif robotSide == "left":
+					if "HandLeft" in eventName:
+						memoryStop.subscribeToEvent(eventName, self.getName(), "setLeftHandFlag")
+				elif robotSide == "both":
+					# Subscribe for both sides of robot as appropriate.
+					if "HandRight" in eventName:
+						memoryStop.subscribeToEvent(eventName, self.getName(), "setRightHandFlag")
+					elif "HandLeft" in eventName:
+						memoryStop.subscribeToEvent(eventName, self.getName(), "setLeftHandFlag")
+					else:
+						print "Oops, nothing subscribed!"
+				else:
+					print "Incorrect argument in subscribe."
 			except Exception, e:
-				print "Error shutting down broker: ", e
+				print "Subscribe exception error %s for %s." % (e, eventName)
+
+	def unSubscribeEventsForStop(self, robotSide = "both"):
+		""" Unsubscribes from hand touch events for stop.
+
+		"""
+		for eventName in self.subscriptionStopList:
 			try:
-				sys.exit(0)
+				if robotSide == "right": 
+					if "HandRight" in eventName:
+						memoryStop.unsubscribeToEvent(eventName, self.getName())
+				elif robotSide == "left":
+					if "HandLeft" in eventName:
+						memoryStop.unsubscribeToEvent(eventName, self.getName())
+				elif robotSide == "both":
+					# Unsubscribe for both sides of robot as appropriate.
+					if "HandRight" in eventName:
+						memoryStop.unsubscribeToEvent(eventName, self.getName())
+					elif "HandLeft" in eventName:
+						memoryStop.unsubscribeToEvent(eventName, self.getName())
+					else:
+						print "Oops, nothing unsubscribed!"
+				else:
+					print "Incorrect argument in unsubscribe."
 			except Exception, e:
-				print "Error exiting system: ", e
+				print "Subscribe exception error %s for %s." % (e, eventName)
 
 
+	def setRightHandFlag(self, key, value, msg):
+		""" Sets a right hand touched flag for stop.
 
+		"""
+		if not memoryStop.getData("rightHandFlag"):
+			try:
+				self.unSubscribeEventsForStop("right")
+				print(" --------------- right hand touched --------------")
+				memoryStop.insertData("rightHandFlag", True)
+				time.sleep(1.0)
+				self.subscribeEventsForStop("right")
+			except:
+				pass
+			finally:
+				memoryStop.insertData("rightHandFlag", False)
+			
 
+	def setLeftHandFlag(self, key, value, msg):
+		""" Sets a left hand touched flag for stop.
+
+		"""
+		if not memoryStop.getData("leftHandFlag"):
+			try:
+				self.unSubscribeEventsForStop("left")
+				print(" --------------- left hand touched --------------")
+				memoryStop.insertData("leftHandFlag", True)
+				time.sleep(1.0)
+				self.subscribeEventsForStop("left")
+			except:
+				pass
+			finally:
+				memoryStop.insertData("leftHandFlag", False)
 
 def main():
 	""" Main entry point
@@ -954,11 +1192,13 @@ def main():
 	# Warning: Objects must be a global variable
 	# The name given to the constructor must be the name of the
 	# variable
-	global MarkovTickle
+	global MarkovTickle, MarkovTickleStop
 	MarkovTickle = MarkovTickleModule("MarkovTickle")
+	MarkovTickleStop = MarkovTickleStopModule("MarkovTickleStop")
 
 	print "Running, hit CTRL+C to stop script"
 	MarkovTickle.mainTask()
+	
 
 	try:
 		while True:

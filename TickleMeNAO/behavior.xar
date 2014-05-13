@@ -15,7 +15,7 @@
             <BehaviorLayer name="behavior_layer1">
                 <BehaviorKeyframe name="keyframe1" index="1">
                     <Diagram>
-                        <Box name="Tickle" id="3" localization="8" tooltip="Enter tooltip here" x="934" y="79">
+                        <Box name="Tickle" id="3" localization="8" tooltip="Enter tooltip here" x="365" y="25">
                             <bitmap>media/images/box/box-timeLine.png</bitmap>
                             <script language="4">
                                 <content>
@@ -38,12 +38,14 @@
 import sys
 import numpy as np
 from naoqi import ALProxy
-
+from naoqi import ALBroker
+from naoqi import ALModule
 
 
 # Global variables to store module instances and proxies
 MarkovTickle = None
 memory = None
+memoryStop = None
 speechProxy = None
 animatedSpeechProxy = None
 bodyProxy = None
@@ -62,6 +64,7 @@ class MyClass(GeneratedClass):
 
         # Globals for proxies
         global memory
+        global memoryStop
         global speechProxy
         global animatedSpeechProxy
         global bodyProxy
@@ -114,6 +117,8 @@ class MyClass(GeneratedClass):
 
         # Thread locks/mutexes.
         self.iAmBeingTickled = False
+        self.rightHandFlag = False
+        self.leftHandFlag = False
 
         self.wordDictionary = {0 : 'ha',
                                 1 : "ha ha",
@@ -217,6 +222,15 @@ class MyClass(GeneratedClass):
                                 "HandLeftLeftTouched",
                                 "HandLeftRightTouched"
                                 ]
+
+        self.subscriptionStopList = [
+                                    "HandRightBackTouched",
+                                    "HandRightLeftTouched",
+                                    "HandRightRightTouched",
+                                    "HandLeftBackTouched",
+                                    "HandLeftLeftTouched",
+                                    "HandLeftRightTouched"
+                                    ]
 
 
         # Transition matrices in numpy format
@@ -922,6 +936,10 @@ class MyClass(GeneratedClass):
         except Exception, e:
             print "Could not create proxy to ALMemory. Error: ", e
         try:
+            memoryStop = ALProxy("ALMemory")
+        except Exception, e:
+            print "Could not create proxy to ALMemory for stop. Error: ", e
+        try:
             LEDProxy = ALProxy("ALLeds")
         except Exception, e:
             print "Could not create proxy to ALLeds. Error: ", e
@@ -1370,6 +1388,13 @@ class MyClass(GeneratedClass):
             value = value from event
 
         """
+        # If both left and right hand touched together need to stop, so check what touched here.
+        sensorGroupTouched = self.tickleTargetDictionary[key]
+        if sensorGroupTouched == "right hand":
+            self.rightHandFlag = True
+        if sensorGroupTouched == "left hand":
+            self.leftHandFlag = True
+
         if not self.iAmBeingTickled:
             self.iAmBeingTickled = True
             self.easyUnsubscribeEvents()
@@ -1414,13 +1439,6 @@ class MyClass(GeneratedClass):
                 #print "Subscribed to %s." % eventName
             except Exception, e:
                 print "Subscribe exception error %s for %s." % (e, eventName)
-        # Other subscriptions.
-        # Check battery interesting idea, but annoying.
-        # try:
-        #   memory.subscribeToEvent("BatteryDisChargingFlagChanged", self.getName(), "batteryChange")
-        # except Exception, e:
-        #   print "Subscribe exception error for %s." % (e)
-
 
     def easyUnsubscribeEvents(self):
         """ Unsubscribes from all events in subscriptionList.
@@ -1432,12 +1450,49 @@ class MyClass(GeneratedClass):
                 #print "Unsubscribed from %s." % eventName
             except Exception, e:
                 print "Unsubscribe exception error %s for %s." % (e, eventName)
-        # Other unsubscribes.
-        # try:
-        #   memory.unsubscribeToEvent("BatteryDisChargingFlagChanged", self.getName())
-        #   #print "Unsubscribed from %s." % eventName
-        # except Exception, e:
-        #   print "Unsubscribe exception error for %s." % (e)
+
+
+
+    def subscribeEventsForStop(self):
+        """ Subscribes to hand touch events. If both hands are touched then stop.
+
+        """
+        self.log(" -------------- subscribing now ------------- ")
+        for eventName in self.subscriptionStopList:
+            try:
+                if "Right" in eventName:
+                    self.log(" ------------ subscribe {} ---------- ".format(eventName))
+                    memoryStop.subscribeToEvent(eventName, self.getName(), "setRightHandFlag")
+                elif "Left" in eventName:
+                    self.log(" ------------ subscribe left ")
+                    memoryStop.subscribeToEvent(eventName, self.getName(), "setLeftHandFlag")
+            except Exception, e:
+                print "Subscribe exception error %s for %s." % (e, eventName)
+
+    def unSubscribeEventsForStop(self):
+        """ Unsubscribes from hand touch events for stop.
+
+        """
+        for eventName in self.subscriptionStopList:
+            try:
+                memoryStop.unsubscribeToEvent(eventName, self.getName())
+                #print "Unsubscribed from %s." % eventName
+            except Exception, e:
+                print "Unsubscribe exception error %s for %s." % (e, eventName)
+
+    def setRightHandFlag(self, key, value, msg):
+        """ Sets a right hand touched flag for stop.
+
+        """
+        self.log(" --------------- right hand touched --------------")
+
+
+
+    def setLeftHandFlag(self, key, value, msg):
+        """ Sets a left hand touched flag for stop.
+
+        """
+        self.log(" --------------- left hand touched --------------")
 
 
     def mainTask(self):
@@ -1447,6 +1502,8 @@ class MyClass(GeneratedClass):
 
         # Subscribe to the sensor events.
         self.easySubscribeEvents("touched")
+
+        self.subscribeEventsForStop()
 
         # Set voice character.
         #print " --------------- speed: {} --------------- ".format(speechProxy.getParameter("speed"))
@@ -1493,150 +1550,9 @@ class MyClass(GeneratedClass):
                                         </Diagram>
                                     </BehaviorKeyframe>
                                 </BehaviorLayer>
-                                <BehaviorLayer name="behavior_layer2">
-                                    <BehaviorKeyframe name="keyframe1" index="1">
-                                        <Diagram>
-                                            <Box name="Stop" id="2" localization="8" tooltip="Stop the behaviour by holding both hands" x="600" y="78">
-                                                <bitmap>media/images/box/box-python-script.png</bitmap>
-                                                <script language="4">
-                                                    <content>
-                                                        <![CDATA[import time
-import sys
-from naoqi import ALProxy
-
-touchProxy = None
-memoryProxy = None
-ttsProxy = None
-
-class MyClass(GeneratedClass):
-    def __init__(self):
-        GeneratedClass.__init__(self)
-        # Globals for proxies
-        global touchProxy
-        global memoryProxy
-        global ttsProxy
-
-        self.rightHandFlag = False
-        self.leftHandFlag = False
-
-        self.subscriptionListRight = [
-                                "HandRightBackTouched",
-                                "HandRightLeftTouched",
-                                "HandRightRightTouched"
-                                ]
-
-        self.subscriptionListLeft = [
-                                "HandLeftBackTouched",
-                                "HandLeftLeftTouched",
-                                "HandLeftRightTouched"
-                                ]
-
-        # Setup proxies
-        try:
-            touchProxy = ALProxy("ALTouch")
-        except Exception, e:
-            print "Could not create proxy to ALTouch. Error: ", e
-        try:
-            memoryProxy = ALProxy("ALMemory")
-        except Exception, e:
-            print "Could not create proxy to ALTouch. Error: ", e
-        try:
-            ttsProxy = ALProxy("ALTextToSpeech")
-        except Exception, e:
-            print "Could not create proxy to ALTextToSpeech. Error: ", e
-
-
-        self.easySubscribeEventsRight()
-        self.easySubscribeEventsLeft()
-
-    def onLoad(self):
-        #put initialization code here
-        pass
-
-    def onUnload(self):
-        #put clean-up code here
-        pass
-
-    def onInput_onStart(self):
-        #self.onStopped() #activate the output of the box
-        pass
-
-    def onInput_onStop(self):
-        self.onUnload() #it is recommended to reuse the clean-up as the box is stopped
-        self.onStopped() #activate the output of the box
-
-    def easySubscribeEventsRight(self):
-        for eventName in self.subscriptionListRight:
-            try:
-                memoryProxy.subscribeToEvent(eventName, self.getName(), "rightHandTouched")
-                #print "Subscribed to %s." % eventName
-            except Exception, e:
-                print "Subscribe exception error %s for %s." % (e, eventName)
-
-    def easySubscribeEventsLeft(self):
-        for eventName in self.subscriptionListLeft:
-            try:
-                memoryProxy.subscribeToEvent(eventName, self.getName(), "leftHandTouched")
-                #print "Subscribed to %s." % eventName
-            except Exception, e:
-                print "Subscribe exception error %s for %s." % (e, eventName)
-
-    def easyUnsubscribeEventsRight(self):
-        for eventName in self.subscriptionListRight:
-            try:
-                memoryProxy.unsubscribeToEvent(eventName, self.getName())
-                #print "Subscribed to %s." % eventName
-            except Exception, e:
-                print "Unsubscribe exception error %s for %s." % (e, eventName)
-
-    def easyUnsubscribeEventsLeft(self):
-        for eventName in self.subscriptionListLeft:
-            try:
-                memoryProxy.unsubscribeToEvent(eventName, self.getName())
-                #print "Subscribed to %s." % eventName
-            except Exception, e:
-                print "unsubscribe exception error %s for %s." % (e, eventName)
-
-
-
-    def rightHandTouched(self):
-        self.easyUnsubscribeEventsRight()
-
-        self.rightHandFlag = True
-
-
-        if self.leftHandFlag:
-            ttsProxy.say("OK, let's stop playing!")
-            self.onStopped()
-        time.sleep(1.0)
-        self.rightHandFlag = False
-        self.easySubscribeEventsRight()
-
-    def leftHandTouched(self):
-        self.easyUnsubscribeEventsLeft()
-
-        self.leftHandFlag = True
-        if self.rightHandFlag:
-            #ttsProxy.say("stop!")
-            self.onStopped()
-        time.sleep(1.0)
-        self.leftHandFlag = False
-        self.easySubscribeEventsLeft()]]>
-</content>
-                                                </script>
-                                                <Input name="onLoad" type="1" type_size="1" nature="0" inner="1" tooltip="Signal sent when diagram is loaded." id="1" />
-                                                <Input name="onStart" type="1" type_size="1" nature="2" inner="0" tooltip="Box behavior starts when a signal is received on this input." id="2" />
-                                                <Input name="onStop" type="1" type_size="1" nature="3" inner="0" tooltip="Box behavior stops when a signal is received on this input." id="3" />
-                                                <Output name="onStopped" type="1" type_size="1" nature="1" inner="0" tooltip="Signal sent when box behavior is finished." id="4" />
-                                            </Box>
-                                            <Link inputowner="2" indexofinput="2" outputowner="0" indexofoutput="1" />
-                                            <Link inputowner="0" indexofinput="4" outputowner="2" indexofoutput="4" />
-                                        </Diagram>
-                                    </BehaviorKeyframe>
-                                </BehaviorLayer>
                             </Timeline>
                         </Box>
-                        <Box name="Say" id="4" localization="8" tooltip="Say some text. Note that you must open the box to enter the text." x="177" y="62">
+                        <Box name="Say" id="4" localization="8" tooltip="Say some text. Note that you must open the box to enter the text." x="405" y="180">
                             <bitmap>media/images/box/interaction/say.png</bitmap>
                             <script language="4">
                                 <content>
@@ -1842,7 +1758,7 @@ class MyClass(GeneratedClass):
                             </Timeline>
                             <Resource name="Speech" type="Lock" timeout="0" />
                         </Box>
-                        <Box name="Speech Reco." id="1" localization="8" tooltip="Recognize a word from a list of words set in the box parameters." x="315" y="105">
+                        <Box name="Speech Reco." id="1" localization="8" tooltip="Recognize a word from a list of words set in the box parameters." x="543" y="223">
                             <bitmap>media/images/box/interaction/ear.png</bitmap>
                             <script language="4">
                                 <content>
@@ -1924,7 +1840,7 @@ class MyClass(GeneratedClass):
                             <Parameter name="Enable word spotting" inherits_from_parent="0" content_type="0" value="0" default_value="0" tooltip="If this option is not activated the robot will only understand exact expressions. If it is, he will spot the exact expressions even in the middle of a sentence.&#x0A;&#x0A;!!Warning!! This option is only available with the speech recognition module using Nuance (ie in Atom version of the robot)." id="10" />
                             <Resource name="Speech recognition" type="Lock" timeout="0" />
                         </Box>
-                        <Box name="Switch Case" id="5" localization="8" tooltip="Test input value and stimulate the output matching to this value. If there is no&#x0A;matching output, the default output (onDefault) is stimulated.&#x0A;&#x0A;You can edit a case by left double-clicking on the line. You can add a&#x0A;case by right clicking on a line and selecting &apos;Insert a row&apos;. You can delete&#x0A;a case by right clicking on a line and selecting &apos;Remove a row&apos;." plugin="dispatcher_plugin" x="267" y="263">
+                        <Box name="Switch Case" id="5" localization="8" tooltip="Test input value and stimulate the output matching to this value. If there is no&#x0A;matching output, the default output (onDefault) is stimulated.&#x0A;&#x0A;You can edit a case by left double-clicking on the line. You can add a&#x0A;case by right clicking on a line and selecting &apos;Insert a row&apos;. You can delete&#x0A;a case by right clicking on a line and selecting &apos;Remove a row&apos;." plugin="dispatcher_plugin" x="495" y="381">
                             <bitmap>media/images/box/interaction/choice.png</bitmap>
                             <script language="4">
                                 <content>
@@ -1970,7 +1886,7 @@ class MyClass(GeneratedClass):
                             <Output name="output_2" type="0" type_size="1" nature="2" inner="0" tooltip="This IO has been automatically added by box. Read box tooltip for more information." id="5" />
                             <Output name="output_3" type="0" type_size="1" nature="2" inner="0" tooltip="This IO has been automatically added by box. Read box tooltip for more information." id="6" />
                         </Box>
-                        <Box name="Animated Say" id="7" localization="8" tooltip="Say some text with animations. Note that you must open the box to enter the text." x="684" y="179">
+                        <Box name="Animated Say" id="7" localization="8" tooltip="Say some text with animations. Note that you must open the box to enter the text." x="912" y="297">
                             <bitmap>media/images/box/interaction/say.png</bitmap>
                             <script language="4">
                                 <content>
@@ -2185,7 +2101,7 @@ class MyClass(GeneratedClass):
                             </Timeline>
                             <Resource name="Speech" type="Lock" timeout="0" />
                         </Box>
-                        <Box name="Animated Say" id="6" localization="8" tooltip="Say some text with animations. Note that you must open the box to enter the text." x="701" y="50">
+                        <Box name="Animated Say" id="6" localization="8" tooltip="Say some text with animations. Note that you must open the box to enter the text." x="929" y="168">
                             <bitmap>media/images/box/interaction/say.png</bitmap>
                             <script language="4">
                                 <content>
@@ -2400,17 +2316,15 @@ class MyClass(GeneratedClass):
                             </Timeline>
                             <Resource name="Speech" type="Lock" timeout="0" />
                         </Box>
-                        <Link inputowner="0" indexofinput="4" outputowner="3" indexofoutput="4" />
-                        <Link inputowner="4" indexofinput="2" outputowner="0" indexofoutput="2" />
                         <Link inputowner="1" indexofinput="2" outputowner="4" indexofoutput="4" />
                         <Link inputowner="5" indexofinput="2" outputowner="1" indexofoutput="5" />
                         <Link inputowner="7" indexofinput="2" outputowner="5" indexofoutput="5" />
                         <Link inputowner="6" indexofinput="2" outputowner="5" indexofoutput="4" />
-                        <Link inputowner="3" indexofinput="2" outputowner="6" indexofoutput="4" />
-                        <Link inputowner="3" indexofinput="2" outputowner="7" indexofoutput="4" />
                         <Link inputowner="1" indexofinput="3" outputowner="5" indexofoutput="3" />
                         <Link inputowner="1" indexofinput="3" outputowner="5" indexofoutput="4" />
                         <Link inputowner="1" indexofinput="3" outputowner="5" indexofoutput="5" />
+                        <Link inputowner="3" indexofinput="2" outputowner="0" indexofoutput="2" />
+                        <Link inputowner="0" indexofinput="4" outputowner="3" indexofoutput="4" />
                     </Diagram>
                 </BehaviorKeyframe>
             </BehaviorLayer>
