@@ -81,6 +81,7 @@ class MarkovTickleModule(ALModule):
 
 		# Globals for proxies
 		global memory
+		global memoryStop
 		global speechProxy
 		global animatedSpeechProxy
 		global bodyProxy
@@ -99,7 +100,7 @@ class MarkovTickleModule(ALModule):
 		self.bodyLanguageModeConfig = {"bodyLanguageMode":"contextual"}
 		self.speechVolume = 1.0
 		# Voice choices are: voice1 = "allison", voice2 = "audrey"
-		self.voice = "allison"
+		# self.voice = "audrey"
 
 		# Variables for playing sound files.
 		self.volume = 0.75
@@ -995,11 +996,10 @@ class MarkovTickleModule(ALModule):
 		"""
 
 		try:
-			# Subscribe to the sensor events.
-			self.easySubscribeEvents("touched")
+			
 
 			# Set voice character.
-			speechProxy.setVoice(self.voice)
+			# speechProxy.setVoice(self.voice)
 			speechProxy.setVolume(self.speechVolume)
 			# At 1.22.3 voice speed setting is only avaiable in Japanese.
 			# speechProxy.setParameter("speed", 4.0)
@@ -1014,9 +1014,12 @@ class MarkovTickleModule(ALModule):
 			robotMotionProxy.wakeUp()
 			
 			# Go to default posture.
-			bodyProxy.goToPosture(self.defaultPose, self.fractionMaxSpeed)
+			# bodyProxy.goToPosture(self.defaultPose, self.fractionMaxSpeed)
 
 			self.doIntroduction()
+
+			# Subscribe to the sensor events.
+			self.easySubscribeEvents("touched")
 
 			# Invite to play the game:-)
 			self.inviteToTickle()
@@ -1189,7 +1192,7 @@ def main():
 	# variable
 	global MarkovTickle, MarkovTickleStop
 	MarkovTickle = MarkovTickleModule("MarkovTickle")
-	MarkovTickleStop = MarkovTickleStopModule("MarkovTickleStop")
+	# MarkovTickleStop = MarkovTickleStopModule("MarkovTickleStop")
 
 	print "Running, hit CTRL+C to stop script"
 	MarkovTickle.mainTask()
