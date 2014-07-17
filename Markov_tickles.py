@@ -98,7 +98,7 @@ class MarkovTickleModule(ALModule):
 		# Variables for animated speech.
 		self.bodyLanguageModeConfig = {"bodyLanguageMode":"contextual"}
 		self.speechVolume = 1.0
-		# Voice choices are: voice1 = "allison", voice2 = "audrey"
+		# Voice choices are: voice1 = "allison", voice2 = "audrey" or in naoqi 2.1 "Kenny22Enhanced" only
 		self.voice = "allison"
 
 		# Variables for playing sound files.
