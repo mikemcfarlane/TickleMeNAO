@@ -8,7 +8,7 @@ I have continued working on TickleMeNAO to enhance the functionality. This is an
 
 I wanted the robot to react to being tickled in a similar way to people being tickled. [YouTube tickling videos](https://www.youtube.com/results?search_query=tickle) provided the main inspiration! There is a high degree of randomness of movement, sounds and words when people are being tickled but there is also an underlying centring of that random movement around the area being tickled. For example, when a foot is tickled the whole body may respond but the main movement will be the foot. 
 
-I would like to have run some form of [video motion analysis](https://en.wikipedia.org/wiki/Video_motion_analysis) on the videos to gain a deeper understanding of any patterns within the tickle movements. At this early stage in the app I based my movement design on observations.
+I would like to have run some form of [Video motion analysis](https://en.wikipedia.org/wiki/Video_motion_analysis) on the videos to gain a deeper understanding of any patterns within the tickle movements. At this early stage in the app I based my movement design on observations.
 
 I also wanted the tickling to be part of a simple game to encourage people to tickle NAO more. 
 
@@ -28,22 +28,22 @@ This got too complex, coupled with my inexperience as a developer, resulting in 
 
 The current markovChoice function looks like:
 
-	def markovChoice(self, inMatrix):
-		""" Chooses a value from a Markov transition matrix.
+    def markovChoice(self, inMatrix):
+        """ Chooses a value from a Markov transition matrix.
 
-		"""
-		randNum = np.random.random()
-		cum = 0
-		sumMatrix = np.sum(inMatrix)
+        """
+        randNum = np.random.random()
+        cum = 0
+        sumMatrix = np.sum(inMatrix)
 
 
-		if not abs(sumMatrix - 1.0) < 1e-10:
-			raise ValueError("Not a p array")
-		else:
-			for index, probability in enumerate(inMatrix):
-				cum += probability
-				if cum > randNum:
-					return index
+        if not abs(sumMatrix - 1.0) < 1e-10:
+            raise ValueError("Not a p array")
+        else:
+            for index, probability in enumerate(inMatrix):
+                cum += probability
+                if cum > randNum:
+                    return index
 
 where inMatrix is a transition matrix. The function returns an index for the next state that the robot should do.
 
@@ -52,37 +52,37 @@ where inMatrix is a transition matrix. The function returns an index for the nex
 I have used [numpy](http://www.numpy.org/) to hold and process data arrays for speed. Each system in the robot will typically have a transition matrix and a dictionary of _actions_. The index returned by _markovChoice()_ provides the index for the transition matrix and the dictionary key. For example, the tickle sounds:
 
 
-		self.transitionMatrixWord = np.array([[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
-											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
-											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
-											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
-											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
-											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
-											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
-											[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01]]
-											)
+        self.transitionMatrixWord = np.array([[0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+                                            [0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+                                            [0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+                                            [0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+                                            [0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+                                            [0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+                                            [0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01],
+                                            [0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.09, 0.01]]
+                                            )
 
-		self.wordDictionary = {0 : 'ha',
-								1 : "ha ha",
-								2 : "he",
-								3 : "he he",
-								4 : "he he he",
-								5 : "ho",
-								6 : "ho ho",
-								7 : "Fookin hell that tickles me!"
-							}
+        self.wordDictionary = {0 : 'ha',
+                                1 : "ha ha",
+                                2 : "he",
+                                3 : "he he",
+                                4 : "he he he",
+                                5 : "ho",
+                                6 : "ho ho",
+                                7 : "Fookin hell that tickles me!"
+                            }
 
 Motion is handled slightly differently, see below, but an example transition matrix might be:
 
-		self.transitionMatrixAction = np.array([[0.25, 0.25, 0.25, 0.25],
-												[0.25, 0.25, 0.25, 0.25],
-												[0.25, 0.25, 0.25, 0.25],
-												[0.25, 0.25, 0.25, 0.25]]
-												)
+        self.transitionMatrixAction = np.array([[0.25, 0.25, 0.25, 0.25],
+                                                [0.25, 0.25, 0.25, 0.25],
+                                                [0.25, 0.25, 0.25, 0.25],
+                                                [0.25, 0.25, 0.25, 0.25]]
+                                                )
 
 ## Summary of choices made ##
 
-+ self.currentStateWord = 0	# Word said when tickled.
++ self.currentStateWord = 0 # Word said when tickled.
 + self.currentStateActionLeftArm = 0    # Left arm movement when tickled.
 + self.currentStateActionRightArm = 0    # Right arm movement when tickled.
 + self.currentStateInvite = 0    # Phrases said when inviting user to tickle.
@@ -100,9 +100,9 @@ Motion is handled slightly differently, see below, but an example transition mat
 
 There are three core ways I identified to move/animate the robot through the Python API:
 
-+ [Joint control](https://community.aldebaran-robotics.com/doc/1-22/naoqi/motion/control-joint.html#control-joint)
-+ [Cartesian control](https://community.aldebaran-robotics.com/doc/1-22/naoqi/motion/control-cartesian.html#control-cartesian)
-+ [Whole body](https://community.aldebaran-robotics.com/doc/1-22/naoqi/motion/control-wholebody.html#control-wholebody)
++ [Joint control](https://community.aldebaran.com/doc/2-1/naoqi/motion/control-joint.html#control-joint)
++ [Cartesian control](https://community.aldebaran.com/doc/2-1/naoqi/motion/control-cartesian.html#control-cartesian)
++ [Whole body](https://community.aldebaran.com/doc/2-1/naoqi/motion/control-wholebody.html#control-wholebody)
 
 I choose to use _joint control_ as I could record animations in Choregraph then export them as Python code to animate with angleInterpolation(). This gives good quality motions, dependent on the quality of the animations I record in Choregraph of course. It is also easy to manipulate the timing of this data to change the motion and to combine data from each independent system (e.g. right arm + left arm) to create a single set of motion data for the whole robot.
 
@@ -113,30 +113,30 @@ An example of the Python motion data exported from Choregraph after cleaning up 
     # Move left arm left right.
     leftArmMovementList0 = [
 
-				["LElbowRoll",
-				[0.88, 1.28, 1.68, 2.04, 2.44, 2.84, 3.2],
-				[-0.335904, -0.308292, -0.269942, -0.283748, -0.19631, -0.1733, -0.079726]],
+                ["LElbowRoll",
+                [0.88, 1.28, 1.68, 2.04, 2.44, 2.84, 3.2],
+                [-0.335904, -0.308292, -0.269942, -0.283748, -0.19631, -0.1733, -0.079726]],
 
-				["LElbowYaw",
-				[0.88, 1.28, 1.68, 2.04, 2.44, 2.84, 3.2],
-				[-1.19963, -1.20116, -1.18736, -1.08305, -1.12293, -1.11219, -1.11833]],
+                ["LElbowYaw",
+                [0.88, 1.28, 1.68, 2.04, 2.44, 2.84, 3.2],
+                [-1.19963, -1.20116, -1.18736, -1.08305, -1.12293, -1.11219, -1.11833]],
 
-				["LHand",
-				[0.88, 1.28, 1.68, 2.04, 2.44, 2.84, 3.2],
-				[0.2952, 0.2952, 0.2952, 0.2952, 0.2952, 0.2952, 0.2952]],
+                ["LHand",
+                [0.88, 1.28, 1.68, 2.04, 2.44, 2.84, 3.2],
+                [0.2952, 0.2952, 0.2952, 0.2952, 0.2952, 0.2952, 0.2952]],
 
-				["LShoulderPitch",
-				[0.88, 1.28, 1.68, 2.04, 2.44, 2.84, 3.2],
-				[0.892746, 0.87127, 1.00933, 1.01393, 1.02927, 1.04615, 1.14125]],
+                ["LShoulderPitch",
+                [0.88, 1.28, 1.68, 2.04, 2.44, 2.84, 3.2],
+                [0.892746, 0.87127, 1.00933, 1.01393, 1.02927, 1.04615, 1.14125]],
 
-				["LShoulderRoll",
-				[0.88, 1.28, 1.68, 2.04, 2.44, 2.84, 3.2],
-				[0.110406, 0.478566, -0.0629361, -0.30991, 0.082794, 0.41107, -0.0798099]],
+                ["LShoulderRoll",
+                [0.88, 1.28, 1.68, 2.04, 2.44, 2.84, 3.2],
+                [0.110406, 0.478566, -0.0629361, -0.30991, 0.082794, 0.41107, -0.0798099]],
 
-				["LWristYaw",
-				[0.88, 1.28, 1.68, 2.04, 2.44, 2.84, 3.2],
-				[-0.377406, -1.30241, 0.191708, 0.960242, -0.599836, 0.582878, -0.314512]]
-				]
+                ["LWristYaw",
+                [0.88, 1.28, 1.68, 2.04, 2.44, 2.84, 3.2],
+                [-0.377406, -1.30241, 0.191708, 0.960242, -0.599836, 0.582878, -0.314512]]
+                ]
 
 There are four potential states in the transitionMatrixAction transition matrix. So four sets of motion are needed. For the left arm example above, there are four such sets of data combined into a single list:
 
@@ -149,7 +149,7 @@ The index returned by _markovChoice()_ provides an index to this movement list. 
 
 ## Sound design ##
 
-Sounds and phrases are randomly chosen each time they are needed using _markovChoice()_. naoqi 2.0 brings [_ALAnimatedSpeech_](https://community.aldebaran-robotics.com/doc/1-22/naoqi/audio/alanimatedspeech.html#alanimatedspeech) which adds contextual body language to any words spoken by the robot creating a more lifelike speech delivery. Here, any words or phrases coming from markovChoice() are chosen and combined as necessary then:
+Sounds and phrases are randomly chosen each time they are needed using _markovChoice()_. naoqi 2.0 brings [_ALAnimatedSpeech_](https://community.aldebaran.com/doc/2-1/naoqi/audio/alanimatedspeech.html#alanimatedspeech) which adds contextual body language to any words spoken by the robot creating a more lifelike speech delivery. Here, any words or phrases coming from markovChoice() are chosen and combined as necessary then:
 
     sayPhrase = "thing to say"
     configuration = {"bodyLanguageMode":"contextual"}
@@ -180,7 +180,7 @@ Running multiple processes trying to move the robot and say phrases quickly crea
 + Writing better code that functions as a state machine.
 + Using queues e.g. a speech queue where each speech generating function submits the phrase to the queue and a single process deal with saying what is in the queue.
 
-Clearly this was something I should have designed up front in the code design process. I tried a number of approaches which are detailed in my [Concurrency iPython notebook](http://nbviewer.ipython.org/github/mikemcfarlane/Code_sprints/blob/master/Concurrency_1/Concurrency_1.ipynb?create=1). Given much of the code was already written I chose to work with mutexes and the naoqi [_post_](https://community.aldebaran-robotics.com/doc/1-22/dev/naoqi/index.html#naoqi-blocking-non-blocking) and [_wait_](https://community.aldebaran-robotics.com/doc/1-22/naoqi/core/almodule-api.html?highlight=wait#ALModule::wait__iCR.iCR) methods and this has solved many of the problems but not all.
+Clearly this was something I should have designed up front in the code design process. I tried a number of approaches which are detailed in my [Concurrency iPython notebook](http://nbviewer.ipython.org/github/mikemcfarlane/Code_sprints/blob/master/Concurrency_1/Concurrency_1.ipynb?create=1). Given much of the code was already written I chose to work with mutexes and the naoqi [_post_](https://community.aldebaran.com/doc/2-1/dev/naoqi/index.html?highlight=post) and [_wait_](https://community.aldebaran.com/doc/2-1/naoqi/core/almodule-api.html?highlight=wait#ALModule::wait__iCR.iCR) methods and this has solved many of the problems but not all.
 
 ## Next steps ##
 
